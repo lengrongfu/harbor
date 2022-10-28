@@ -1109,6 +1109,7 @@
         "IMAGE": "IMAGE",
         "CHART": "CHART",
         "CNAB": "CNAB",
+        "WASM": "WASM",
         "TAGGED": "Tagged",
         "UNTAGGED": "Untagged",
         "ALL": "All",
@@ -1184,7 +1185,8 @@
         "UNLIMITED": "sınırsız",
         "INVALID_INPUT": "geçersiz giriş",
         "PLACEHOLDER": "We couldn't find any project quotas",
-        "FILTER_PLACEHOLDER": "Search by name(exact match)"
+        "FILTER_PLACEHOLDER": "Search by name(exact match)",
+        "QUOTA_USED": "Quota used"
     },
     "WEEKLY": {
         "MONDAY": "Pazartesi",

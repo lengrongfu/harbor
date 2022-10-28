@@ -266,7 +266,7 @@ Test Case - User View Projects
     Create An New Project And Go Into Project  test${d}1
     Create An New Project And Go Into Project  test${d}2
     Create An New Project And Go Into Project  test${d}3
-    Switch To Log
+    Switch To Logs
     Wait Until Page Contains  test${d}1
     Wait Until Page Contains  test${d}2
     Wait Until Page Contains  test${d}3
@@ -834,6 +834,7 @@ Test Case - WASM Push And Pull To Harbor
     Wait Unitl Command Success  wasm-to-oci pull ${ip}/project${d}/wasm-to-oci:v1 --out test.wasm
     Wait Unitl Command Success  docker logout ${ip}
     Retry file should exist  test.wasm
+    Close Browser
 
 Test Case - Carvel Imgpkg Push And Pull To Harbor
     [Tags]  imgpkg_push_and_pull
@@ -853,6 +854,7 @@ Test Case - Carvel Imgpkg Push And Pull To Harbor
     Docker Logout  ${ip}
     Retry File Should Exist  ${out_path}/.imgpkg/bundle.yml
     Retry File Should Exist  ${out_path}/.imgpkg/images.yml
+    Close Browser
 
 Test Case - Cosign And Cosign Deployment Security Policy
     [Tags]  cosign
@@ -882,3 +884,163 @@ Test Case - Cosign And Cosign Deployment Security Policy
     Pull image  ${ip}  ${user}  ${pwd}  project${d}  ${image}:${tag}
 
     Retry Double Keywords When Error  Delete Accessory  ${tag}  Should be Accessory deleted  ${tag}
+    Close Browser
+
+Test Case - Audit Log And Purge
+    [Tags]  audit_log_and_purge
+    Init Chrome Driver
+    ${user}=  Set Variable  user003
+    ${pwd}=  Set Variable  Test1@34
+    ${d}=  Get Current Date  result_format=%m%s
+    ${image}=  Set Variable  alpine
+    ${tag1}=  Set Variable  3.10
+    ${tag2}=  Set Variable  test
+    ${sha256}=  Set Variable  sha256:de78803598bc4c940fc4591d412bffe488205d5d953f94751c6308deeaaa7eb8
+    Sign In Harbor  ${HARBOR_URL}  ${user}  ${pwd}
+    # create project
+    Create An New Project And Go Into Project  project${d}
+    Switch To Logs
+    Verify Log  ${user}  project${d}  project  create
+    # create artifact
+    Push Image With Tag  ${ip}  ${user}  ${pwd}  project${d}  ${image}  ${tag1}  ${tag1}
+    Clean All Local Images
+    Verify Log  ${user}  project${d}/${image}:${tag1}  artifact  create
+    Go Into Project  project${d}
+    Go Into Repo  ${image}
+    Go Into Artifact  ${tag1}
+    # create tag
+    Add A New Tag   ${tag2}
+    # delete tag
+    Delete A Tag  ${tag2}
+    Switch To Logs
+    Verify Log  ${user}  project${d}/${image}:${tag2}  tag  delete
+    Verify Log  ${user}  project${d}/${image}:${tag2}  tag  create  2
+    Docker Login  ${ip}  ${user}  ${pwd}
+    # pull artifact
+    Docker Pull  ${ip}/project${d}/${image}:${tag1}
+    Docker Logout  ${ip}
+    Verify Log  ${user}  project${d}/${image}:${sha256}  artifact  pull
+    Go Into Project  project${d}
+    Go Into Repo  project${d}/${image}
+    # delete artifact
+    @{tag_list}  Create List  ${tag1}
+    Multi-delete Artifact  @{tag_list}
+    Switch To Logs
+    Verify Log  ${user}  project${d}/${image}:${sha256}  artifact  delete
+    Go Into Project  project${d}
+    # delete repository
+    Delete Repo  project${d}  ${image}
+    Switch To Logs
+    Verify Log  ${user}  project${d}/${image}  repository  delete
+    # delete project
+    Delete Project  project${d}
+    Logout Harbor
+    Sign In Harbor  ${HARBOR_URL}  ${HARBOR_ADMIN}  ${HARBOR_PASSWORD}
+    Switch To Logs
+    Verify Log  ${user}  project${d}  project  delete
+    Switch To Log Rotation
+    Purge Now  1  Hours
+    Close Browser
+
+Test Case - Audit Log Forward
+    [Tags]  audit_log_forward
+    Init Chrome Driver
+    ${d}=  Get Current Date  result_format=%m%s
+    ${audit_log_path}=  Set Variable  ${log_path}/audit.log
+    ${syslog_endpoint}=  Set Variable  harbor-log:10514
+    ${test_endpoint}=  Set Variable  test.endpoint
+    ${image}=  Set Variable  alpine
+    ${tag1}=  Set Variable  3.10
+    ${tag2}=  Set Variable  test
+    Sign In Harbor  ${HARBOR_URL}  ${HARBOR_ADMIN}  ${HARBOR_PASSWORD}
+    Create An New Project And Go Into Project  project${d}
+    Switch To Logs
+    Verify Log  ${HARBOR_ADMIN}  project${d}  project  create
+    Switch To System Settings
+    Retry Wait Element Should Be Disabled  ${skip_audit_log_database_checkbox}
+    Set Audit Log Forward  ${test_endpoint}  bad request: could not connect to the audit endpoint: ${test_endpoint}
+    # Set Audit Log Forward
+    Set Audit Log Forward  ${syslog_endpoint}  Configuration has been successfully saved.
+    Wait Until Element Is Enabled  ${skip_audit_log_database_checkbox}
+    # create artifact
+    Push Image With Tag  ${ip}  ${HARBOR_ADMIN}  ${HARBOR_PASSWORD}  project${d}  ${image}  ${tag1}  ${tag1}
+    Switch To Logs
+    Verify Log  ${HARBOR_ADMIN}  project${d}/${image}:${tag1}  artifact  create
+    Verify Log In File  ${HARBOR_ADMIN}  project${d}/${image}:${tag1}  artifact  create
+    # Enable Skip Audit Log Database
+    Enable Skip Audit Log Database
+    Go Into Project  project${d}
+    Go Into Repo  ${image}
+    Go Into Artifact  ${tag1}
+    # create tag
+    Add A New Tag   ${tag2}
+    Switch To Logs
+    Verify Log  ${HARBOR_ADMIN}  project${d}/${image}:${tag1}  artifact  create
+    Verify Log In File  ${HARBOR_ADMIN}  project${d}/${image}:${tag2}  artifact  create
+    Set Audit Log Forward  ${null}  Configuration has been successfully saved.
+    Retry Wait Element Should Be Disabled  ${skip_audit_log_database_checkbox}
+    Checkbox Should Not Be Selected  ${skip_audit_log_database_checkbox}
+    Go Into Project  project${d}
+    Go Into Repo  ${image}
+    Go Into Artifact  ${tag1}
+    # delete tag
+    Delete A Tag  ${tag2}
+    Switch To Logs
+    Verify Log  ${HARBOR_ADMIN}  project${d}/${image}:${tag2}  tag  delete
+    Verify Log In File  ${HARBOR_ADMIN}  project${d}/${image}:${tag2}  artifact  create
+    Close Browser
+
+Test Case - Export CVE
+    [Tags]  export_cve
+    Init Chrome Driver
+    ${d}=  Get Current Date  result_format=%m%s
+    ${user}=  Set Variable  user023
+    ${pwd}=  Set Variable  Test1@34
+    &{images}=  Create Dictionary  nginx=1.14.0  redis=5.0  alpine=3.9.4  photon=4.0-20210226  postgres=9.6
+    ${labels}=  Create List  sys_level_export${d}  proj_level_export${d}
+    ${cve_ids}=  Create List  CVE-2019-18224  CVE-2021-3997  CVE-2022-25315
+    ${nginx_sha256}=  Set Variable  sha256:d43aa3719937f9df0502f8258f3034a21b720b5b9bbf01bbfdbd09871aac8930
+    ${redis_sha256}=  Set Variable  sha256:e4b315ad03a1d1d9ff0c111e648a1a91066c09ead8352d3d6a48fa971a82922c
+    ${expected_cve_data}=  Create List  project${d}/nginx,${nginx_sha256},${cve_ids}[1],libudev1,232-25+deb9u4,,Medium,,"{""CVSS"": {""redhat"": {""V3Score"": 5.5, ""V3Vector"": ""CVSS:3.1/AV:L/AC:L/PR:L/UI:N/S:U/C:N/I:N/A:H""}}}",Trivy
+    ...                                 project${d}/nginx,${nginx_sha256},${cve_ids}[1],libsystemd0,232-25+deb9u4,,Medium,,"{""CVSS"": {""redhat"": {""V3Score"": 5.5, ""V3Vector"": ""CVSS:3.1/AV:L/AC:L/PR:L/UI:N/S:U/C:N/I:N/A:H""}}}",Trivy
+    ...                                 project${d}/redis,${redis_sha256},${cve_ids}[0],libidn2-0,2.0.5-1,2.0.5-1+deb10u1,Critical,CWE-787,"{""CVSS"": {""nvd"": {""V2Score"": 7.5, ""V3Score"": 9.8, ""V2Vector"": ""AV:N/AC:L/Au:N/C:P/I:P/A:P"", ""V3Vector"": ""CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:H""}, ""redhat"": {""V3Score"": 5.6, ""V3Vector"": ""CVSS:3.0/AV:N/AC:H/PR:N/UI:N/S:U/C:L/I:L/A:L""}}}",Trivy
+    ...                                 project${d}/redis,${redis_sha256},${cve_ids}[1],libudev1,241-7~deb10u2,,Medium,,"{""CVSS"": {""redhat"": {""V3Score"": 5.5, ""V3Vector"": ""CVSS:3.1/AV:L/AC:L/PR:L/UI:N/S:U/C:N/I:N/A:H""}}}",Trivy
+    ...                                 project${d}/nginx,${nginx_sha256},${cve_ids}[2],libexpat1,2.2.0-2+deb9u1,2.2.0-2+deb9u5,Critical,CWE-190,"{""CVSS"": {""nvd"": {""V2Score"": 7.5, ""V3Score"": 9.8, ""V2Vector"": ""AV:N/AC:L/Au:N/C:P/I:P/A:P"", ""V3Vector"": ""CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:H""}, ""redhat"": {""V3Score"": 9.8, ""V3Vector"": ""CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:H""}}}",Trivy
+    ...                                 project${d}/redis,${redis_sha256},${cve_ids}[1],libsystemd0,241-7~deb10u2,,Medium,,"{""CVSS"": {""redhat"": {""V3Score"": 5.5, ""V3Vector"": ""CVSS:3.1/AV:L/AC:L/PR:L/UI:N/S:U/C:N/I:N/A:H""}}}",Trivy
+    Sign In Harbor  ${HARBOR_URL}  ${HARBOR_ADMIN}  ${HARBOR_PASSWORD}
+    Switch To System Labels
+    Create New Labels  ${labels}[0]
+    Logout Harbor
+    Sign In Harbor  ${HARBOR_URL}  ${user}  ${pwd}
+    Create An New Project And Go Into Project  project${d}
+    # push images
+    FOR  ${image}  IN  @{images.keys()}
+        Push Image With Tag  ${ip}  ${user}  ${pwd}  project${d}  ${image}  ${images['${image}']}  ${images['${image}']}
+    END
+    # scan images
+    Refresh Repositories
+    FOR  ${image}  IN  @{images.keys()}
+        Go Into Repo  ${image}
+        Scan Repo  ${images['${image}']}  Succeed
+        Back Project Home  project${d}
+    END
+    Switch To Project Label
+    Create New Labels  ${labels}[1]
+    Switch To Project Repo
+    Go Into Repo  nginx
+    Add Labels To Tag  ${images['nginx']}  ${labels}[0]
+    Back Project Home  project${d}
+    Go Into Repo  redis
+    Add Labels To Tag  ${images['redis']}  ${labels}[1]
+    Navigate To Projects
+    Should Not Be Export CVEs
+    Retry Element Click  //clr-dg-row[1]//label
+    Retry Element Click  //clr-dg-row[2]//label
+    Should Not Be Export CVEs
+    Export CVEs  project${d}  photon,postgres,nginx,redis  ${images['photon']},${images['nginx']},${images['redis']}  ${labels}  ${cve_ids}[0],${cve_ids}[1],${cve_ids}[2]
+    ${csv_file_path}=  Download Latest CVE CSV File
+    ${csv_file}=  OperatingSystem.Get File  ${csv_file_path}
+    ${csv_file_content}=  Create List  ${csv_file}
+    ${actual_cve_data}=  Split To Lines  @{csv_file_content}  1
+    Lists Should Be Equal  ${expected_cve_data}  ${actual_cve_data}  ignore_order=True
+    Close Browser

@@ -5656,7 +5656,7 @@ paths:
   /export/cve/executions:
     get:
       summary: Get a list of specific scan data export execution jobs for a specified user
-      description: Get the scan data export execution specified by ID
+      description: Get a list of specific scan data export execution jobs for a specified user
       tags:
         - scan data export
       operationId: getScanDataExportExecutionList
@@ -9176,7 +9176,7 @@ definitions:
         items:
           type: integer
           format: int64
-        description: A list of one or more projects for which to export the scan data, defaults to all if empty
+        description: A list of one or more projects for which to export the scan data, currently only one project is supported due to performance concerns, but define as array for extension in the future.
       labels:
         type: array
         items:
