@@ -79,7 +79,6 @@ Body Of Scan Image With Empty Vul
     Go Into Project  library
     Go Into Repo  ${image_argument}
     Scan Repo  ${tag}  Succeed
-    Move To Summary Chart
     Scan Result Should Display In List Row  ${tag}  is_no_vulerabilty=${true}
     Close Browser
 
@@ -129,61 +128,6 @@ Body Of Scan Image On Push
     View Repo Scan Details  @{vulnerability_levels}
     Close Browser
 
-Body Of List Helm Charts
-    Init Chrome Driver
-    ${d}=   Get Current Date    result_format=%m%s
-
-    Sign In Harbor  ${HARBOR_URL}  user027  Test1@34
-    Create An New Project And Go Into Project  project${d}
-
-    Switch To Project Charts
-    Upload Chart files
-    Go Into Chart Version  ${prometheus_chart_name}
-    Retry Wait Until Page Contains  ${prometheus_chart_version}
-    Go Into Chart Detail  ${prometheus_chart_version}
-
-    # Summary tab
-    Retry Wait Until Page Contains Element  ${summary_markdown}
-    Retry Wait Until Page Contains Element  ${summary_container}
-
-    # Dependency tab
-    Retry Double Keywords When Error  Retry Element Click  xpath=${detail_dependency}  Retry Wait Until Page Contains Element  ${dependency_content}
-
-    # Values tab
-    Retry Double Keywords When Error  Retry Element Click  xpath=${detail_value}  Retry Wait Until Page Contains Element  ${value_content}
-
-    Go Into Project  project${d}  has_image=${false}
-    Retry Keyword N Times When Error  4  Download Chart File  ${prometheus_chart_name}  ${prometheus_chart_filename}
-    Multi-delete Chart Files  ${prometheus_chart_name}  ${harbor_chart_name}
-    Close Browser
-
-Body Of Push Signed Image
-    Init Chrome Driver
-    ${d}=  Get Current Date    result_format=%m%s
-    ${user}=  Set Variable  user010
-    ${pwd}=   Set Variable  Test1@34
-    Sign In Harbor  ${HARBOR_URL}  ${user}  ${pwd}
-    Create An New Project And Go Into Project  project${d}
-    Body Of Admin Push Signed Image  project${d}  tomcat  latest  ${user}  ${pwd}
-    Body Of Admin Push Signed Image  project${d}  alpine  latest  ${HARBOR_ADMIN}  ${HARBOR_PASSWORD}
-    Close Browser
-
-Body Of Admin Push Signed Image
-    [Arguments]  ${project}  ${image}  ${tag}  ${user}  ${pwd}  ${with_remove}=${false}  ${clear_trust_dir}=${true}
-    Run Keyword If  ${clear_trust_dir}==${true}  Wait Unitl Command Success  rm -rf ~/.docker/
-    ${src_tag}=   Set Variable  latest
-    ${src_image}=   Set Variable  ${LOCAL_REGISTRY}/${LOCAL_REGISTRY_NAMESPACE}/${image}:${src_tag}
-    Docker Pull  ${src_image}
-    Wait Unitl Command Success  ./tests/robot-cases/Group0-Util/notary-push-image.sh ${ip} ${project} ${image} ${tag} ${notaryServerEndpoint} ${src_image} ${user} ${pwd}
-
-    ${rc}  ${output}=  Run And Return Rc And Output  curl -u admin:Harbor12345 -s --insecure -H "Content-Type: application/json" -X GET "https://${ip}/api/v2.0/projects/${project}/repositories/${image}/artifacts/${tag}?with_signature=true"
-
-    Log To Console  ${output}
-    Should Be Equal As Integers  ${rc}  0
-    Should Contain  ${output}  "signed":true
-
-    Run Keyword If  ${with_remove} == ${true}  Notary Remove Signature  ${ip}  ${project}  ${image}  ${tag}  ${user}  ${pwd}
-
 Delete A Project Without Sign In Harbor
     [Arguments]  ${harbor_ip}=${ip}  ${username}=${HARBOR_ADMIN}  ${password}=${HARBOR_PASSWORD}
     ${d}=    Get Current Date    result_format=%m%s
@@ -218,24 +162,6 @@ Manage Project Member Without Sign In Harbor
     User Should Not Be A Member Of Project  ${test_user1}  ${sign_in_pwd}  project${d}    is_oidc_mode=${is_oidc_mode}
     Push image  ${ip}  ${sign_in_user}  ${sign_in_pwd}  project${d}  hello-world
     User Should Be Guest  ${test_user2}  ${sign_in_pwd}  project${d}  is_oidc_mode=${is_oidc_mode}
-
-Helm CLI Push Without Sign In Harbor
-    [Arguments]  ${sign_in_user}  ${sign_in_pwd}
-    ${d}=   Get Current Date    result_format=%m%s
-    Create An New Project And Go Into Project  project${d}
-    Helm Repo Add  ${HARBOR_URL}  ${sign_in_user}  ${sign_in_pwd}  project_name=project${d}
-    Helm Repo Push  ${sign_in_user}  ${sign_in_pwd}  ${harbor_chart_filename}
-    Switch To Project Charts
-    Go Into Chart Version  ${harbor_chart_name}
-    Retry Wait Until Page Contains  ${harbor_chart_version}
-
-Helm3 CLI Push Without Sign In Harbor
-    [Arguments]  ${sign_in_user}  ${sign_in_pwd}
-    ${d}=   Get Current Date    result_format=%m%s
-    Create An New Project And Go Into Project  project${d}
-    Helm Repo Push  ${sign_in_user}  ${sign_in_pwd}  ${harbor_chart_filename}  helm_repo_name=${HARBOR_URL}/chartrepo/project${d}  helm_cmd=helm3
-    Switch To Project Charts
-    Retry Double Keywords When Error  Go Into Chart Version  ${harbor_chart_name}  Retry Wait Until Page Contains  ${harbor_chart_version}
 
 Helm3.7 CLI Work Flow
     [Arguments]  ${sign_in_user}  ${sign_in_pwd}
@@ -487,7 +413,7 @@ Verify Webhook By Artifact Pushed Event
     [Arguments]  ${project_name}  ${image}  ${tag}  ${user}  ${pwd}  ${webhook_handle}
     Switch Window  ${webhook_handle}
     Delete All Requests
-    Push Image With Tag  ${ip}  ${user}  ${pwd}  ${project_name}  ${image}  ${tag}    
+    Push Image With Tag  ${ip}  ${user}  ${pwd}  ${project_name}  ${image}  ${tag}
     &{artifact_pushed_property}=  Create Dictionary  type=PUSH_ARTIFACT  operator=${user}  namespace=${project_name}  name=${image}  tag=${tag}
     Verify Request  &{artifact_pushed_property}
     Clean All Local Images
@@ -554,7 +480,7 @@ Verify Webhook By Tag Retention Finished Event
     &{tag_retention_finished_property}=  Create Dictionary  type=TAG_RETENTION  operator=MANUAL  project_name=${project_name}  name_tag=${image}:${tag2}  status=SUCCESS
     Verify Request  &{tag_retention_finished_property}
 
-Verify Webhook By Replication Finished Event
+Verify Webhook By Replication Status Changed Event
     [Arguments]  ${project_name}  ${project_dest_name}  ${replication_rule_name}  ${harbor_handle}  ${webhook_handle}
     Switch Window  ${webhook_handle}
     Delete All Requests
@@ -563,7 +489,7 @@ Verify Webhook By Replication Finished Event
     Select Rule And Replicate  ${replication_rule_name}
     Retry Wait Until Page Contains  Succeeded
     Switch Window  ${webhook_handle}
-    &{replication_finished_property}=  Create Dictionary  type=REPLICATION  operator=MANUAL  registry_type=harbor  harbor_hostname=${ip}  
+    &{replication_finished_property}=  Create Dictionary  type=REPLICATION  operator=MANUAL  registry_type=harbor  harbor_hostname=${ip}
     Verify Request  &{replication_finished_property}
 
 Verify Webhook By Quota Near Threshold Event And Quota Exceed Event
@@ -597,3 +523,57 @@ Verify Webhook By Quota Exceed Event
     Cannot Push image  ${ip}  ${HARBOR_ADMIN}  ${HARBOR_PASSWORD}  ${project_name}  ${image}:${tag}  err_msg=adding 21.1 MiB of storage resource, which when updated to current usage of 48.5 MiB will exceed the configured upper limit of ${storage_quota}.0 MiB.
     &{quota_exceed_property}=  Create Dictionary  type=QUOTA_EXCEED  name=${image}  namespace=${project_name}
     Verify Request  &{quota_exceed_property}
+
+Create Schedules For Job Service Dashboard Schedules
+    [Arguments]  ${project_name}  ${schedule_type}  ${schedule_cron}  ${distribution_endpoint}=${null}
+    ${d}=  Get Current Date  result_format=%m%s
+    ${distribution_name}=  Set Variable  distribution${d}
+    ${distribution_endpoint}=  Set Variable If  "${distribution_endpoint}" == "${null}"  https://${d}  ${distribution_endpoint}
+    ${p2p_policy_name}=  Set Variable  policy${d}
+    ${replication_policy_name}=  Set Variable  rule${d}
+    # Create a retention policy triggered by schedule
+    Switch To Tag Retention
+    Add A Tag Retention Rule
+    Set Tag Retention Policy Schedule  ${schedule_type}  ${schedule_cron}
+    # Create a preheat policy triggered by schedule
+    Create An New Distribution  Dragonfly  ${distribution_name}  ${distribution_endpoint}
+    Go Into Project  ${project_name}
+    Create An New P2P Preheat Policy  ${p2p_policy_name}  ${distribution_name}  **  **  Scheduled  ${schedule_type}  ${schedule_cron}
+    # Create a replication policy triggered by schedule
+    Switch to Registries
+    Create A New Endpoint  docker-hub  docker-hub${d}  ${null}  ${null}  ${null}  Y
+    Switch To Replication Manage
+    Create A Rule With Existing Endpoint  ${replication_policy_name}  pull  goharbor/harbor-core  image  docker-hub${d}  ${project_name}  filter_tag=dev  mode=Scheduled  cron=${schedule_cron}
+    # Set up a schedule to scan all
+    Switch To Vulnerability Page
+    Set Scan Schedule  Custom  value=${schedule_cron}
+    # Set up a schedule to GC
+    Switch To Garbage Collection
+    Set GC Schedule  custom  value=${schedule_cron}
+    # Set up a schedule to log rotation
+    Switch To Log Rotation
+    ${exclude_operations}  Create List  Pull
+    Set Log Rotation Schedule  1  Days  ${schedule_type}  ${schedule_cron}  ${exclude_operations}
+    [Return]  ${replication_policy_name}  ${p2p_policy_name}  ${distribution_name}
+
+Reset Schedules For Job Service Dashboard Schedules
+    [Arguments]  ${project_name}  ${replication_policy_name}  ${p2p_policy_name}
+    Go Into Project  ${project_name}
+    # Reset the schedule of retention policy
+    Switch To Tag Retention
+    Set Tag Retention Policy Schedule  None
+    # Reset the schedule of preheat policy
+    Switch To P2P Preheat
+    Delete A P2P Preheat Policy  ${p2p_policy_name}
+    # Reset the schedule of replication policy
+    Switch To Replication Manage
+    Delete Replication Rule  ${replication_policy_name}
+    # Reset the schedule of scan all
+    Switch To Vulnerability Page
+    Set Scan Schedule  None
+    # Reset the schedule of GC
+    Switch To Garbage Collection
+    Set GC Schedule  None
+    # Reset the schedule of log rotation
+    Switch To Log Rotation
+    Set Log Rotation Schedule  2  Days  None

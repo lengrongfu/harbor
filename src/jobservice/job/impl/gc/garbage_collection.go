@@ -282,7 +282,18 @@ func (gc *GarbageCollector) sweep(ctx job.Context) error {
 				// Harbor cannot know the existing tags in the backend from its database, so let the v2 DELETE manifest to remove all of them.
 				gc.logger.Infof("[%d/%d] delete the manifest with registry v2 API: %s, %s, %s",
 					idx, total, art.RepositoryName, blob.ContentType, blob.Digest)
-				if err := v2DeleteManifest(gc.logger, art.RepositoryName, blob.Digest); err != nil {
+				if err := retry.Retry(func() error {
+					return ignoreNotFound(func() error {
+						err := v2DeleteManifest(art.RepositoryName, blob.Digest)
+						// if the system is in read-only mode, return an Abort error to skip retrying
+						if err == readonly.Err {
+							return retry.Abort(err)
+						}
+						return err
+					})
+				}, retry.Callback(func(err error, sleep time.Duration) {
+					gc.logger.Infof("[%d/%d] failed to exec v2DeleteManifest, error: %v, will retry again after: %s", idx, total, err, sleep)
+				})); err != nil {
 					gc.logger.Errorf("[%d/%d] failed to delete manifest with v2 API, %s, %s, %v", idx, total, art.RepositoryName, blob.Digest, err)
 					if err := ignoreNotFound(func() error {
 						return gc.markDeleteFailed(ctx, blob)
@@ -324,6 +335,14 @@ func (gc *GarbageCollector) sweep(ctx job.Context) error {
 					}
 					skippedBlob = true
 					continue
+				}
+
+				gc.logger.Infof("[%d/%d] delete artifact blob record from database: %d, %s, %s", idx, total, art.ID, art.RepositoryName, art.Digest)
+				if err := ignoreNotFound(func() error {
+					return gc.blobMgr.CleanupAssociationsForArtifact(ctx.SystemContext(), art.Digest)
+				}); err != nil {
+					gc.logger.Errorf("[%d/%d] failed to call gc.blobMgr.CleanupAssociationsForArtifact(): %v, errMsg=%v", idx, total, art.Digest, err)
+					return err
 				}
 
 				gc.logger.Infof("[%d/%d] delete artifact trash record from database: %d, %s, %s", idx, total, art.ID, art.RepositoryName, art.Digest)

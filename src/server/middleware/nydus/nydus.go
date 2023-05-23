@@ -1,9 +1,23 @@
+// Copyright Project Harbor Authors
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//    http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package nydus
 
 import (
 	"context"
 	"encoding/json"
-	"io/ioutil"
+	"io"
 	"net/http"
 
 	v1 "github.com/opencontainers/image-spec/specs-go/v1"
@@ -84,7 +98,7 @@ func AcceleratorMiddleware() func(http.Handler) http.Handler {
 			return nil
 		}
 
-		body, err := ioutil.ReadAll(r.Body)
+		body, err := io.ReadAll(r.Body)
 		if err != nil {
 			return err
 		}
@@ -129,11 +143,11 @@ func AcceleratorMiddleware() func(http.Handler) http.Handler {
 
 			if err := orm.WithTransaction(func(ctx context.Context) error {
 				id, err := accessory.Mgr.Create(ctx, model.AccessoryData{
-					ArtifactID:    art.ID,
-					SubArtifactID: subjectArt.ID,
-					Size:          desc.Size,
-					Digest:        desc.Digest.String(),
-					Type:          model.TypeNydusAccelerator,
+					ArtifactID:        art.ID,
+					SubArtifactDigest: subjectArt.Digest,
+					Size:              desc.Size,
+					Digest:            desc.Digest.String(),
+					Type:              model.TypeNydusAccelerator,
 				})
 				log.Debug("accessory id:", id)
 				return err

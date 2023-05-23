@@ -93,16 +93,6 @@ DOCKERFILEPATH_REGISTRYCTL=$(DOCKERFILEPATH)/$(REGISTRYCTL)
 DOCKERFILENAME_REGISTRYCTL=Dockerfile
 DOCKERIMAGENAME_REGISTRYCTL=$(IMAGENAMESPACE)/harbor-$(REGISTRYCTL)
 
-NOTARYSERVER=notary-server
-NOTARYSIGNER=notary-signer
-DOCKERFILEPATH_NOTARY=$(DOCKERFILEPATH)/notary
-DOCKERFILEPATH_NOTARYSERVER=$(DOCKERFILEPATH)/$(NOTARYSERVER)
-DOCKERFILENAME_NOTARYSERVER=Dockerfile
-DOCKERIMAGENAME_NOTARYSERVER=$(IMAGENAMESPACE)/$(NOTARYSERVER)-photon
-DOCKERFILEPATH_NOTARYSIGNER=$(DOCKERFILEPATH)/$(NOTARYSIGNER)
-DOCKERFILENAME_NOTARYSIGNER=Dockerfile
-DOCKERIMAGENAME_NOTARYSIGNER=$(IMAGENAMESPACE)/$(NOTARYSIGNER)-photon
-
 REDIS=redis
 DOCKERFILEPATH_REDIS=$(DOCKERFILEPATH)/$(REDIS)
 DOCKERFILENAME_REDIS=Dockerfile
@@ -116,14 +106,6 @@ EXPORTER=exporter
 DOCKERFILEPATH_EXPORTER=$(DOCKERFILEPATH)/$(EXPORTER)
 DOCKERFILENAME_EXPORTER=Dockerfile
 DOCKERIMAGENAME_EXPORTER=$(IMAGENAMESPACE)/harbor-$(EXPORTER)
-
-# for chart server (chartmuseum)
-CHARTSERVER=chartserver
-DOCKERFILEPATH_CHART_SERVER=$(DOCKERFILEPATH)/$(CHARTSERVER)
-DOCKERFILENAME_CHART_SERVER=Dockerfile
-CHART_SERVER_CODE_BASE=https://github.com/helm/chartmuseum.git
-CHART_SERVER_MAIN_PATH=cmd/chartmuseum
-CHART_SERVER_BIN_NAME=chartm
 
 _build_prepare:
 	@$(call _build_base,$(PREPARE),$(DOCKERFILEPATH_PREPARE))
@@ -184,44 +166,11 @@ _build_trivy_adapter:
 		echo "Done." ; \
 	fi
 
-_build_chart_server:
-	@if [ "$(CHARTFLAG)" = "true" ] ; then \
-		$(call _build_base,$(CHARTSERVER),$(DOCKERFILEPATH_CHART_SERVER)); \
-		if [ "$(BUILDBIN)" != "true" ] ; then \
-			rm -rf $(DOCKERFILEPATH_CHART_SERVER)/binary && mkdir -p $(DOCKERFILEPATH_CHART_SERVER)/binary && \
-			$(call _get_binary, $(CHARTURL), $(DOCKERFILEPATH_CHART_SERVER)/binary/chartm); \
-		else \
-			cd $(DOCKERFILEPATH_CHART_SERVER) && $(DOCKERFILEPATH_CHART_SERVER)/builder $(GOBUILDIMAGE) $(CHART_SERVER_CODE_BASE) $(CHARTMUSEUM_SRC_TAG) $(CHART_SERVER_MAIN_PATH) $(CHART_SERVER_BIN_NAME) && cd - ; \
-		fi ; \
-		echo "building chartmuseum container for photon..." ; \
-		$(DOCKERBUILD_WITH_PULL_PARA) --build-arg harbor_base_image_version=$(BASEIMAGETAG) --build-arg harbor_base_namespace=$(BASEIMAGENAMESPACE) -f $(DOCKERFILEPATH_CHART_SERVER)/$(DOCKERFILENAME_CHART_SERVER) -t $(DOCKERIMAGENAME_CHART_SERVER):$(VERSIONTAG) . ; \
-		rm -rf $(DOCKERFILEPATH_CHART_SERVER)/binary; \
-		echo "Done." ; \
-	fi
-
 _build_nginx:
 	@$(call _build_base,$(NGINX),$(DOCKERFILEPATH_NGINX))
 	@echo "building nginx container for photon..."
 	@$(DOCKERBUILD_WITH_PULL_PARA) --build-arg harbor_base_image_version=$(BASEIMAGETAG) --build-arg harbor_base_namespace=$(BASEIMAGENAMESPACE) -f $(DOCKERFILEPATH_NGINX)/$(DOCKERFILENAME_NGINX) -t $(DOCKERIMAGENAME_NGINX):$(VERSIONTAG) .
 	@echo "Done."
-
-_build_notary:
-	@if [ "$(NOTARYFLAG)" = "true" ] ; then \
-		$(call _build_base,$(NOTARYSERVER),$(DOCKERFILEPATH_NOTARYSERVER)) ; \
-		$(call _build_base,$(NOTARYSIGNER),$(DOCKERFILEPATH_NOTARYSIGNER)) ; \
-		if [ "$(BUILDBIN)" != "true" ] ; then \
-			rm -rf $(DOCKERFILEPATH_NOTARY)/binary && mkdir -p $(DOCKERFILEPATH_NOTARY)/binary && \
-			$(call _get_binary, $(NOTARYURL), $(DOCKERFILEPATH_NOTARY)/binary-bundle.tgz); \
-			cd $(DOCKERFILEPATH_NOTARY) && tar -zvxf binary-bundle.tgz && cd - ; \
-		else \
-			cd $(DOCKERFILEPATH_NOTARY) && $(DOCKERFILEPATH_NOTARY)/builder $(NOTARYVERSION) $(NOTARYMIGRATEVERSION) && cd - ; \
-		fi ; \
-		echo "building notary container for photon..."; \
-		chmod 655 $(DOCKERFILEPATH_NOTARY)/binary/notary-signer && $(DOCKERBUILD_WITH_PULL_PARA) --build-arg harbor_base_image_version=$(BASEIMAGETAG) --build-arg harbor_base_namespace=$(BASEIMAGENAMESPACE) -f $(DOCKERFILEPATH_NOTARYSIGNER)/$(DOCKERFILENAME_NOTARYSIGNER) -t $(DOCKERIMAGENAME_NOTARYSIGNER):$(VERSIONTAG) . ; \
-		chmod 655 $(DOCKERFILEPATH_NOTARY)/binary/notary-server && $(DOCKERBUILD_WITH_PULL_PARA) --build-arg harbor_base_image_version=$(BASEIMAGETAG) --build-arg harbor_base_namespace=$(BASEIMAGENAMESPACE) -f $(DOCKERFILEPATH_NOTARYSERVER)/$(DOCKERFILENAME_NOTARYSERVER) -t $(DOCKERIMAGENAME_NOTARYSERVER):$(VERSIONTAG) . ; \
-		rm -rf $(DOCKERFILEPATH_NOTARY)/binary; \
-		echo "Done."; \
-	fi
 
 _build_registry:
 	@$(call _build_base,$(REGISTRY),$(DOCKERFILEPATH_REG))
@@ -275,7 +224,7 @@ define _build_base
 		if [ -n "$(REGISTRYUSER)"  ] && [ -n "$(REGISTRYPASSWORD)" ] ; then \
 			docker login -u $(REGISTRYUSER) -p $(REGISTRYPASSWORD) ; \
 		else \
-			echo "No docker credentials provided, please be aware of priviledges to access docker hub!" ; \
+			echo "No docker credentials provided, please be aware of privileges to access docker hub!" ; \
 		fi ;\
 		$(DOCKERBUILD) -f $(2)/Dockerfile.base -t $(BASEIMAGENAMESPACE)/harbor-$(1)-base:$(BASEIMAGETAG) --label base-build-date=$(TIMESTAMP) . ;\
 		if [ "$(PUSHBASEIMAGE)" = "true" ] ; then \
@@ -284,7 +233,7 @@ define _build_base
 	fi
 endef
 
-build: _build_prepare _build_db _build_portal _build_core _build_jobservice _build_log _build_nginx _build_registry _build_registryctl _build_notary _build_trivy_adapter _build_redis _build_chart_server _compile_and_build_exporter
+build: _build_prepare _build_db _build_portal _build_core _build_jobservice _build_log _build_nginx _build_registry _build_registryctl _build_trivy_adapter _build_redis _compile_and_build_exporter
 	@if [ -n "$(REGISTRYUSER)"  ] && [ -n "$(REGISTRYPASSWORD)" ] ; then \
 		docker logout ; \
 	fi

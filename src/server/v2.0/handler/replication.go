@@ -108,6 +108,11 @@ func (r *replicationAPI) CreateReplicationPolicy(ctx context.Context, params ope
 		}
 		policy.Speed = *params.Policy.Speed
 	}
+
+	if params.Policy.CopyByChunk != nil {
+		policy.CopyByChunk = *params.Policy.CopyByChunk
+	}
+
 	id, err := r.ctl.CreatePolicy(ctx, policy)
 	if err != nil {
 		return r.SendError(ctx, err)
@@ -171,6 +176,11 @@ func (r *replicationAPI) UpdateReplicationPolicy(ctx context.Context, params ope
 		}
 		policy.Speed = *params.Policy.Speed
 	}
+
+	if params.Policy.CopyByChunk != nil {
+		policy.CopyByChunk = *params.Policy.CopyByChunk
+	}
+
 	if err := r.ctl.UpdatePolicy(ctx, policy); err != nil {
 		return r.SendError(ctx, err)
 	}
@@ -340,6 +350,12 @@ func (r *replicationAPI) ListReplicationTasks(ctx context.Context, params operat
 	if err := r.RequireSystemAccess(ctx, rbac.ActionList, rbac.ResourceReplication); err != nil {
 		return r.SendError(ctx, err)
 	}
+	// check the existence of the replication execution
+	_, err := r.ctl.GetExecution(ctx, params.ID)
+	if err != nil {
+		return r.SendError(ctx, err)
+	}
+
 	query, err := r.BuildQuery(ctx, nil, params.Sort, params.Page, params.PageSize)
 	if err != nil {
 		return r.SendError(ctx, err)
@@ -429,6 +445,7 @@ func convertReplicationPolicy(policy *repctlmodel.Policy) *models.ReplicationPol
 		ReplicateDeletion:         policy.ReplicateDeletion,
 		Speed:                     &policy.Speed,
 		UpdateTime:                strfmt.DateTime(policy.UpdateTime),
+		CopyByChunk:               &policy.CopyByChunk,
 	}
 	if policy.SrcRegistry != nil {
 		p.SrcRegistry = convertRegistry(policy.SrcRegistry)

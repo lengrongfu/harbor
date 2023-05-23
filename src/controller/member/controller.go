@@ -1,16 +1,16 @@
-//  Copyright Project Harbor Authors
+// Copyright Project Harbor Authors
 //
-//  Licensed under the Apache License, Version 2.0 (the "License");
-//  you may not use this file except in compliance with the License.
-//  You may obtain a copy of the License at
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
 //
-//     http://www.apache.org/licenses/LICENSE-2.0
+//    http://www.apache.org/licenses/LICENSE-2.0
 //
-//  Unless required by applicable law or agreed to in writing, software
-//  distributed under the License is distributed on an "AS IS" BASIS,
-//  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-//  See the License for the specific language governing permissions and
-//  limitations under the License.
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
 
 package member
 
@@ -75,14 +75,15 @@ var ErrDuplicateProjectMember = errors.ConflictError(nil).WithMessage("The proje
 var ErrInvalidRole = errors.BadRequestError(nil).WithMessage("Failed to update project member, role is not in 1,2,3")
 
 type controller struct {
-	userManager user.Manager
-	mgr         member.Manager
-	projectMgr  project.Manager
+	userManager  user.Manager
+	mgr          member.Manager
+	projectMgr   project.Manager
+	groupManager usergroup.Manager
 }
 
 // NewController ...
 func NewController() Controller {
-	return &controller{mgr: member.Mgr, projectMgr: pkg.ProjectMgr, userManager: user.New()}
+	return &controller{mgr: member.Mgr, projectMgr: pkg.ProjectMgr, userManager: user.New(), groupManager: usergroup.Mgr}
 }
 
 func (c *controller) Count(ctx context.Context, projectNameOrID interface{}, query *q.Query) (int, error) {
@@ -129,9 +130,23 @@ func (c *controller) Create(ctx context.Context, projectNameOrID interface{}, re
 	member.EntityType = common.GroupMember
 
 	if req.MemberUser.UserID > 0 {
+		user, err := c.userManager.Get(ctx, req.MemberUser.UserID)
+		if err != nil {
+			return 0, errors.BadRequestError(nil).WithMessage("Failed to get user %d: %v", req.MemberUser.UserID, err)
+		}
+		if user == nil {
+			return 0, errors.BadRequestError(nil).WithMessage("User %d not found", req.MemberUser.UserID)
+		}
 		member.EntityID = req.MemberUser.UserID
 		member.EntityType = common.UserMember
 	} else if req.MemberGroup.ID > 0 {
+		g, err := c.groupManager.Get(ctx, req.MemberGroup.ID)
+		if err != nil {
+			return 0, errors.BadRequestError(nil).WithMessage("Failed to get group %d: %v", req.MemberGroup.ID, err)
+		}
+		if g == nil {
+			return 0, errors.BadRequestError(nil).WithMessage("Group %d not found", req.MemberGroup.ID)
+		}
 		member.EntityID = req.MemberGroup.ID
 	} else if len(req.MemberUser.Username) > 0 {
 		// If username is provided, search userid by username

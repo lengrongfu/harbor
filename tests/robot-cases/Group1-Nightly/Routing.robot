@@ -40,7 +40,6 @@ Test Case - Main Menu Routing
     ...  harbor/clearing-job/gc=//gc-history//h5[contains(.,'GC History')]
     ...  harbor/clearing-job/audit-log-purge=//app-purge-history//h5[contains(.,'Purge History')]
     ...  harbor/configs/auth=//config//config-auth//label[contains(.,'Auth Mode')]
-    ...  harbor/configs/email=//config//config-email//label[contains(.,'Email Server Port')]
     ...  harbor/configs/security=//config//app-security//span[contains(.,'CVE allowlist')]
     ...  harbor/configs/setting=//config//system-settings//label[contains(.,'Project Creation')]
     FOR  ${key}  IN  @{routing.keys()}
@@ -54,7 +53,6 @@ Test Case - Project Tab Routing
     Sign In Harbor  ${HARBOR_URL}  ${HARBOR_ADMIN}  ${HARBOR_PASSWORD}
     &{routing}=	 Create Dictionary  harbor/projects/1/summary=//project-detail//summary
     ...  harbor/projects/1/repositories=//project-detail//hbr-repository-gridview
-    ...  harbor/projects/1/helm-charts=//project-detail//project-list-charts
     ...  harbor/projects/1/members=//project-detail//ng-component//button//span[contains(.,'User')]
     ...  harbor/projects/1/labels=//project-detail//app-project-config//hbr-label
     ...  harbor/projects/1/scanner=//project-detail//scanner

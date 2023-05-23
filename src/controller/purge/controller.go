@@ -1,16 +1,16 @@
-//  Copyright Project Harbor Authors
+// Copyright Project Harbor Authors
 //
-//  Licensed under the Apache License, Version 2.0 (the "License");
-//  you may not use this file except in compliance with the License.
-//  You may obtain a copy of the License at
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
 //
-//     http://www.apache.org/licenses/LICENSE-2.0
+//    http://www.apache.org/licenses/LICENSE-2.0
 //
-//  Unless required by applicable law or agreed to in writing, software
-//  distributed under the License is distributed on an "AS IS" BASIS,
-//  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-//  See the License for the specific language governing permissions and
-//  limitations under the License.
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
 
 package purge
 
@@ -29,8 +29,6 @@ import (
 const (
 	// SchedulerCallback ...
 	SchedulerCallback = "PURGE_AUDIT_LOG_CALLBACK"
-	// VendorType ...
-	VendorType = "PURGE_AUDIT_LOG"
 )
 
 // Ctrl a global purge controller instance
@@ -76,12 +74,12 @@ func (c *controller) Start(ctx context.Context, policy JobPolicy, trigger string
 	para[common.PurgeAuditRetentionHour] = policy.RetentionHour
 	para[common.PurgeAuditIncludeOperations] = policy.IncludeOperations
 
-	execID, err := c.exeMgr.Create(ctx, VendorType, -1, trigger, para)
+	execID, err := c.exeMgr.Create(ctx, job.PurgeAuditVendorType, -1, trigger, para)
 	if err != nil {
 		return -1, err
 	}
 	_, err = c.taskMgr.Create(ctx, execID, &task.Job{
-		Name: job.PurgeAudit,
+		Name: job.PurgeAuditVendorType,
 		Metadata: &job.Metadata{
 			JobKind: job.KindGeneric,
 		},

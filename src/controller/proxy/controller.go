@@ -1,16 +1,16 @@
-//  Copyright Project Harbor Authors
+// Copyright Project Harbor Authors
 //
-//  Licensed under the Apache License, Version 2.0 (the "License");
-//  you may not use this file except in compliance with the License.
-//  You may obtain a copy of the License at
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
 //
-//     http://www.apache.org/licenses/LICENSE-2.0
+//    http://www.apache.org/licenses/LICENSE-2.0
 //
-//  Unless required by applicable law or agreed to in writing, software
-//  distributed under the License is distributed on an "AS IS" BASIS,
-//  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-//  See the License for the specific language governing permissions and
-//  limitations under the License.
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
 
 package proxy
 
@@ -170,31 +170,31 @@ func (c *controller) UseLocalManifest(ctx context.Context, art lib.ArtifactInfo,
 		return a != nil && string(desc.Digest) == a.Digest, nil, nil // digest matches
 	}
 
-	err = c.cache.Fetch(ctx, manifestListKey(art.Repository, string(desc.Digest)), &content)
+	err = c.cache.Fetch(ctx, manifestListKey(art.Repository, art), &content)
 	if err != nil {
 		if errors.Is(err, cache.ErrNotFound) {
-			log.Debugf("Digest is not found in manifest list cache, key=cache:%v", manifestListKey(art.Repository, string(desc.Digest)))
+			log.Debugf("Digest is not found in manifest list cache, key=cache:%v", manifestListKey(art.Repository, art))
 		} else {
 			log.Errorf("Failed to get manifest list from cache, error: %v", err)
 		}
 		return a != nil && string(desc.Digest) == a.Digest, nil, nil
 	}
-	err = c.cache.Fetch(ctx, manifestListContentTypeKey(art.Repository, string(desc.Digest)), &contentType)
+	err = c.cache.Fetch(ctx, manifestListContentTypeKey(art.Repository, art), &contentType)
 	if err != nil {
 		log.Debugf("failed to get the manifest list content type, not use local. error:%v", err)
 		return false, nil, nil
 	}
-	log.Debugf("Get the manifest list with key=cache:%v", manifestListKey(art.Repository, string(desc.Digest)))
+	log.Debugf("Get the manifest list with key=cache:%v", manifestListKey(art.Repository, art))
 	return true, &ManifestList{content, string(desc.Digest), contentType}, nil
 }
 
-func manifestListKey(repo, dig string) string {
-	// actual redis key format is cache:manifestlist:<repo name>:sha256:xxxx
-	return "manifestlist:" + repo + ":" + dig
+func manifestListKey(repo string, art lib.ArtifactInfo) string {
+	// actual redis key format is cache:manifestlist:<repo name>:<tag> or cache:manifestlist:<repo name>:sha256:xxxx
+	return "manifestlist:" + repo + ":" + getReference(art)
 }
 
-func manifestListContentTypeKey(rep, dig string) string {
-	return manifestListKey(rep, dig) + ":contenttype"
+func manifestListContentTypeKey(rep string, art lib.ArtifactInfo) string {
+	return manifestListKey(rep, art) + ":contenttype"
 }
 
 func (c *controller) ProxyManifest(ctx context.Context, art lib.ArtifactInfo, remote RemoteInterface) (distribution.Manifest, error) {
@@ -239,7 +239,7 @@ func (c *controller) ProxyManifest(ctx context.Context, art lib.ArtifactInfo, re
 			}
 		}
 		if a != nil {
-			SendPullEvent(a, art.Tag, operator)
+			SendPullEvent(bCtx, a, art.Tag, operator)
 		}
 	}(operator.FromContext(ctx))
 

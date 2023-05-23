@@ -18,7 +18,9 @@ import (
 	"context"
 	"fmt"
 	"regexp"
+	"sort"
 	"strings"
+	"time"
 
 	"github.com/go-openapi/runtime/middleware"
 
@@ -35,6 +37,7 @@ import (
 	"github.com/goharbor/harbor/src/lib/errors"
 	"github.com/goharbor/harbor/src/lib/log"
 	"github.com/goharbor/harbor/src/lib/q"
+	"github.com/goharbor/harbor/src/lib/retry"
 	"github.com/goharbor/harbor/src/pkg/permission/types"
 	"github.com/goharbor/harbor/src/server/v2.0/handler/model"
 	"github.com/goharbor/harbor/src/server/v2.0/models"
@@ -60,6 +63,13 @@ func (u *usersAPI) SetCliSecret(ctx context.Context, params operation.SetCliSecr
 	uid := int(params.UserID)
 	if err := u.requireForCLISecret(ctx, uid); err != nil {
 		return u.SendError(ctx, err)
+	}
+	if params.Secret.Secret == "" {
+		rSec, err := getRandomSecret()
+		if err != nil {
+			return u.SendError(ctx, err)
+		}
+		params.Secret.Secret = rSec
 	}
 	if err := requireValidSecret(params.Secret.Secret); err != nil {
 		return u.SendError(ctx, err)
@@ -281,6 +291,9 @@ func (u *usersAPI) SearchUsers(ctx context.Context, params operation.SearchUsers
 		m := &model.User{User: us}
 		result = append(result, m.ToSearchRespItem())
 	}
+	sort.Slice(result, func(i, j int) bool {
+		return utils.MostMatchSorter(result[i].Username, result[j].Username, params.Username)
+	})
 	return operation.NewSearchUsersOK().
 		WithXTotalCount(total).
 		WithPayload(result).
@@ -307,7 +320,12 @@ func (u *usersAPI) UpdateUserPassword(ctx context.Context, params operation.Upda
 	if err := requireValidSecret(newPwd); err != nil {
 		return u.SendError(ctx, err)
 	}
-	ok, err := u.ctl.VerifyPassword(ctx, sctx.GetUsername(), newPwd)
+	user, err := u.getUserByID(ctx, uid)
+	if err != nil {
+		log.G(ctx).Errorf("Failed to get user profile for uid: %d, error: %v", uid, err)
+		return u.SendError(ctx, err)
+	}
+	ok, err := u.ctl.VerifyPassword(ctx, user.Username, newPwd)
 	if err != nil {
 		log.G(ctx).Errorf("Failed to verify password for user: %s, error: %v", sctx.GetUsername(), err)
 		return u.SendError(ctx, errors.UnknownError(nil).WithMessage("Failed to verify password"))
@@ -442,6 +460,29 @@ func requireValidSecret(in string) error {
 		return nil
 	}
 	return errors.BadRequestError(nil).WithMessage("the password or secret must be longer than 8 chars with at least 1 uppercase letter, 1 lowercase letter and 1 number")
+}
+
+func getRandomSecret() (string, error) {
+	var cliSecret string
+	options := []retry.Option{
+		retry.InitialInterval(time.Millisecond * 500),
+		retry.MaxInterval(time.Second * 10),
+		retry.Timeout(time.Minute),
+		retry.Callback(func(err error, sleep time.Duration) {
+			log.Debugf("failed to generate secret for cli, retry after %s : %v", sleep, err)
+		}),
+	}
+
+	if err := retry.Retry(func() error {
+		cliSecret = utils.GenerateRandomStringWithLen(9)
+		if err := requireValidSecret(cliSecret); err != nil {
+			return errors.New(nil).WithMessage("invalid cli secret format")
+		}
+		return nil
+	}, options...); err != nil {
+		return "", errors.Wrap(err, "failed to generate an valid random secret for cli in one minute, please try again")
+	}
+	return cliSecret, nil
 }
 
 func validateUserProfile(user *commonmodels.User) error {

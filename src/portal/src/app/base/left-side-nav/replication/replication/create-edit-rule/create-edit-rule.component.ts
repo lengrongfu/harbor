@@ -53,6 +53,7 @@ import {
 } from '../../replication';
 import { errorHandler as errorHandlerFn } from '../../../../../shared/units/shared.utils';
 import { ReplicationPolicy } from '../../../../../../../ng-swagger-gen/models/replication-policy';
+import { RegistryInfo } from 'ng-swagger-gen/models';
 
 const PREFIX: string = '0 ';
 const PAGE_SIZE: number = 100;
@@ -94,7 +95,6 @@ export class CreateEditRuleComponent implements OnInit, OnDestroy {
     supportedFilterLabels: {
         name: string;
         color: string;
-        select: boolean;
         scope: string;
     }[] = [];
 
@@ -116,6 +116,9 @@ export class CreateEditRuleComponent implements OnInit, OnDestroy {
     ];
     selectedUnit: string = BandwidthUnit.KB;
     copySpeedUnit: string = BandwidthUnit.KB;
+    showChunkOption: boolean = false;
+    stringForLabelFilter: string = '';
+    copyStringForLabelFilter: string = '';
     constructor(
         private fb: UntypedFormBuilder,
         private repService: ReplicationService,
@@ -128,18 +131,25 @@ export class CreateEditRuleComponent implements OnInit, OnDestroy {
     }
 
     initRegistryInfo(id: number): void {
-        this.onGoing = true;
-        this.repService
-            .getRegistryInfo(id)
-            .pipe(finalize(() => (this.onGoing = false)))
-            .subscribe(
-                adapter => {
-                    this.setFilterAndTrigger(adapter);
+        this.inProgress = true;
+        this.endpointService
+            .getRegistryInfo({ id: id })
+            .pipe(finalize(() => (this.inProgress = false)))
+            .subscribe({
+                next: adapter => {
+                    // for push mode, if id === 0,  what we get is currentRegistryInfo, and then setFilterAndTrigger(currentRegistryInfo)
+                    // for pull mode, always setFilterAndTrigger
+                    if ((this.isPushMode && !id) || !this.isPushMode) {
+                        this.setFilterAndTrigger(adapter);
+                    }
+                    if (id) {
+                        this.checkChunkOption(id, adapter);
+                    }
                 },
-                (error: any) => {
+                error: error => {
                     this.inlineAlert.showInlineError(error);
-                }
-            );
+                },
+            });
     }
     getAllRegistries() {
         this.endpointService
@@ -240,6 +250,7 @@ export class CreateEditRuleComponent implements OnInit, OnDestroy {
     pushModeChange(): void {
         this.setFilter([]);
         this.initRegistryInfo(0);
+        this.checkChunkOption(this.ruleForm?.get('dest_registry')?.value?.id);
     }
 
     pullModeChange(): void {
@@ -247,6 +258,8 @@ export class CreateEditRuleComponent implements OnInit, OnDestroy {
         if (selectId) {
             this.setFilter([]);
             this.initRegistryInfo(selectId.id);
+        } else {
+            this.checkChunkOption(0);
         }
     }
 
@@ -316,6 +329,7 @@ export class CreateEditRuleComponent implements OnInit, OnDestroy {
             deletion: false,
             override: true,
             speed: -1,
+            copy_by_chunk: false,
         });
     }
 
@@ -348,13 +362,29 @@ export class CreateEditRuleComponent implements OnInit, OnDestroy {
             override: true,
             dest_namespace_replace_count: Flatten_Level.FLATTEN_LEVEl_1,
             speed: -1,
+            copy_by_chunk: false,
         });
         this.isPushMode = true;
         this.selectedUnit = BandwidthUnit.KB;
+        this.stringForLabelFilter = '';
     }
 
     updateRuleFormAndCopyUpdateForm(rule: ReplicationPolicy): void {
+        if (rule?.filters?.length) {
+            // set stringForLabelFilter
+            this.stringForLabelFilter = '';
+            this.copyStringForLabelFilter = '';
+            rule.filters.forEach(item => {
+                if (item.type === FilterType.LABEL) {
+                    this.stringForLabelFilter = (item.value as string[]).join(
+                        ','
+                    );
+                    this.copyStringForLabelFilter = this.stringForLabelFilter;
+                }
+            });
+        }
         this.isPushMode = rule.dest_registry.id !== 0;
+        this.checkChunkOption(rule.dest_registry.id || rule.src_registry.id);
         setTimeout(() => {
             // convert speed unit to KB or MB
             let speed: number = this.convertToInputValue(rule.speed);
@@ -374,6 +404,7 @@ export class CreateEditRuleComponent implements OnInit, OnDestroy {
                 enabled: rule.enabled,
                 override: rule.override,
                 speed: speed,
+                copy_by_chunk: rule.copy_by_chunk,
             });
             let filtersArray = this.getFilterArray(rule);
             this.noSelectedEndpoint = false;
@@ -448,6 +479,7 @@ export class CreateEditRuleComponent implements OnInit, OnDestroy {
                 return;
             }
             this.noSelectedEndpoint = false;
+            this.initRegistryInfo(this.ruleForm.get('dest_registry').value.id);
         }
     }
 
@@ -463,6 +495,10 @@ export class CreateEditRuleComponent implements OnInit, OnDestroy {
     public hasFormChange(): boolean {
         if (this.copySpeedUnit !== this.selectedUnit) {
             // speed unit has been changed
+            return true;
+        }
+        if (this.copyStringForLabelFilter !== this.stringForLabelFilter) {
+            // label filter has been changed
             return true;
         }
         return !isEmptyObject(this.hasChanges());
@@ -494,6 +530,18 @@ export class CreateEditRuleComponent implements OnInit, OnDestroy {
             copyRuleForm.dest_registry = null;
         }
         let filters: any = copyRuleForm.filters;
+
+        // set label filter
+        if (this.stringForLabelFilter) {
+            // set stringForLabelFilter
+            copyRuleForm.filters.forEach(item => {
+                if (item.type === FilterType.LABEL) {
+                    item.value = this.stringForLabelFilter
+                        .split(',')
+                        .filter(item => item);
+                }
+            });
+        }
         // remove the filters which user not set.
         for (let i = filters.length - 1; i >= 0; i--) {
             if (
@@ -503,6 +551,10 @@ export class CreateEditRuleComponent implements OnInit, OnDestroy {
             ) {
                 copyRuleForm.filters.splice(i, 1);
             }
+        }
+        if (!this.showChunkOption) {
+            delete copyRuleForm?.copy_by_chunk;
+            delete this.ruleForm?.value?.copy_by_chunk;
         }
 
         if (this.policyId < 0) {
@@ -549,69 +601,39 @@ export class CreateEditRuleComponent implements OnInit, OnDestroy {
         this.policyId = -1;
         this.createEditRuleOpened = true;
         this.noEndpointInfo = '';
+        this.showChunkOption = false;
         if (this.targetList.length === 0) {
             this.noEndpointInfo = 'REPLICATION.NO_ENDPOINT_INFO';
         }
         if (rule) {
-            if (
-                this.supportedFilterLabels &&
-                this.supportedFilterLabels.length
-            ) {
-                this.supportedFilterLabels.forEach((label, index) => {
-                    if (rule.filters && rule.filters.length) {
-                        rule.filters.forEach(f => {
-                            if (
-                                f.type === FilterType.LABEL &&
-                                f.value &&
-                                (f.value as any).length
-                            ) {
-                                (f.value as any).forEach(name => {
-                                    if (label.name === name) {
-                                        this.supportedFilterLabels[
-                                            index
-                                        ].select = true;
-                                    }
-                                });
-                            }
-                        });
-                    }
-                });
-            }
             this.onGoing = true;
             this.policyId = +rule.id;
             this.headerTitle = 'REPLICATION.EDIT_POLICY_TITLE';
-            this.repService.getReplicationRule(rule.id).subscribe(
-                ruleInfo => {
-                    let srcRegistryId = ruleInfo.src_registry.id;
-                    this.repService
-                        .getRegistryInfo(srcRegistryId)
-                        .pipe(finalize(() => (this.onGoing = false)))
-                        .subscribe(
-                            adapter => {
-                                this.setFilterAndTrigger(adapter);
-                                this.updateRuleFormAndCopyUpdateForm(ruleInfo);
-                            },
-                            (error: any) => {
-                                this.translateService
-                                    .get(
-                                        'REPLICATION.UNREACHABLE_SOURCE_REGISTRY',
-                                        {
-                                            error: errorHandlerFn(error),
-                                        }
-                                    )
-                                    .subscribe(translatedResponse => {
-                                        this.inlineAlert.showInlineError(
-                                            translatedResponse
-                                        );
-                                    });
-                            }
-                        );
-                },
-                (error: any) => {
-                    this.onGoing = false;
-                    this.inlineAlert.showInlineError(error);
-                }
-            );
+            this.repService
+                .getRegistryInfo(rule.src_registry.id)
+                .pipe(finalize(() => (this.onGoing = false)))
+                .subscribe({
+                    next: adapter => {
+                        this.setFilterAndTrigger(adapter);
+                        this.updateRuleFormAndCopyUpdateForm(rule);
+                    },
+                    error: (error: any) => {
+                        // if error, use default(set registry id to 0) filters and triggers
+                        this.repService.getRegistryInfo(0).subscribe(res => {
+                            this.setFilterAndTrigger(res);
+                            this.updateRuleFormAndCopyUpdateForm(rule);
+                        });
+                        this.translateService
+                            .get('REPLICATION.UNREACHABLE_SOURCE_REGISTRY', {
+                                error: errorHandlerFn(error),
+                            })
+                            .subscribe(translatedResponse => {
+                                this.inlineAlert.showInlineError(
+                                    translatedResponse
+                                );
+                            });
+                    },
+                });
         } else {
             this.onGoing = true;
             let registryObs = this.repService.getRegistryInfo(0);
@@ -619,14 +641,6 @@ export class CreateEditRuleComponent implements OnInit, OnDestroy {
                 adapter => {
                     this.setFilterAndTrigger(adapter);
                     this.copyUpdateForm = clone(this.ruleForm.value);
-                    if (
-                        this.supportedFilterLabels &&
-                        this.supportedFilterLabels.length
-                    ) {
-                        this.supportedFilterLabels.forEach((label, index) => {
-                            label.select = false;
-                        });
-                    }
                 },
                 (error: any) => {
                     this.inlineAlert.showInlineError(error);
@@ -731,24 +745,20 @@ export class CreateEditRuleComponent implements OnInit, OnDestroy {
         }
         return false;
     }
-    stickLabel(value, index) {
-        value.select = !value.select;
-        let filters = this.ruleForm.get('filters') as UntypedFormArray;
-        let fromIndex = filters.controls[index] as UntypedFormGroup;
-        let labelValue = this.supportedFilterLabels.reduce(
-            (cumulatedSelectedArrs, currentValue) => {
-                if (currentValue.select) {
-                    if (!cumulatedSelectedArrs.length) {
-                        return [currentValue.name];
-                    }
-                    return [...cumulatedSelectedArrs, currentValue.name];
-                }
-                return cumulatedSelectedArrs;
-            },
-            []
-        );
-
-        fromIndex.setControl('value', this.fb.array(labelValue));
+    stickLabel(name: string) {
+        if (this.isSelect(name)) {
+            let arr: string[] = this.stringForLabelFilter.split(',');
+            arr = arr.filter(item => {
+                return item !== name;
+            });
+            this.stringForLabelFilter = arr.join(',');
+        } else {
+            if (this.stringForLabelFilter) {
+                this.stringForLabelFilter += `,${name}`;
+            } else {
+                this.stringForLabelFilter += `${name}`;
+            }
+        }
     }
     // set prefix '0 ', so user can not set item of 'seconds'
     inputInvalid(e: any) {
@@ -805,7 +815,6 @@ export class CreateEditRuleComponent implements OnInit, OnDestroy {
                                 this.supportedFilterLabels.push({
                                     name: data.name,
                                     color: data.color ? data.color : '#FFFFFF',
-                                    select: false,
                                     scope: 'g',
                                 });
                             });
@@ -834,7 +843,6 @@ export class CreateEditRuleComponent implements OnInit, OnDestroy {
                                         color: data.color
                                             ? data.color
                                             : '#FFFFFF',
-                                        select: false,
                                         scope: 'g',
                                     });
                                 });
@@ -865,15 +873,26 @@ export class CreateEditRuleComponent implements OnInit, OnDestroy {
             return realSpeed ? realSpeed : -1;
         }
     }
-    getLabel(labelName: string): Label {
-        if (this.supportedFilterLabels?.length) {
-            let label: Label;
-            this.supportedFilterLabels.forEach(item => {
-                if (item.name === labelName) {
-                    label = item;
-                }
-            });
-            return label;
+    checkChunkOption(id: number, info?: RegistryInfo) {
+        this.showChunkOption = false;
+        this.ruleForm.get('copy_by_chunk').reset(false);
+        if (info) {
+            this.showChunkOption = info.supported_copy_by_chunk;
+        } else {
+            if (id) {
+                this.endpointService.getRegistryInfo({ id }).subscribe(res => {
+                    if (res) {
+                        this.showChunkOption = res.supported_copy_by_chunk;
+                    }
+                });
+            }
         }
+    }
+
+    isSelect(v: string) {
+        if (v && this.stringForLabelFilter) {
+            return this.stringForLabelFilter.indexOf(v) !== -1;
+        }
+        return false;
     }
 }

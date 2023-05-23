@@ -1,16 +1,16 @@
-//  Copyright Project Harbor Authors
+// Copyright Project Harbor Authors
 //
-//  Licensed under the Apache License, Version 2.0 (the "License");
-//  you may not use this file except in compliance with the License.
-//  You may obtain a copy of the License at
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
 //
-//     http://www.apache.org/licenses/LICENSE-2.0
+//    http://www.apache.org/licenses/LICENSE-2.0
 //
-//  Unless required by applicable law or agreed to in writing, software
-//  distributed under the License is distributed on an "AS IS" BASIS,
-//  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-//  See the License for the specific language governing permissions and
-//  limitations under the License.
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
 
 package config
 
@@ -159,14 +159,16 @@ func (c *CfgManager) GetDatabaseCfg() *models.Database {
 	return &models.Database{
 		Type: c.Get(ctx, common.DatabaseType).GetString(),
 		PostGreSQL: &models.PostGreSQL{
-			Host:         c.Get(ctx, common.PostGreSQLHOST).GetString(),
-			Port:         c.Get(ctx, common.PostGreSQLPort).GetInt(),
-			Username:     c.Get(ctx, common.PostGreSQLUsername).GetString(),
-			Password:     c.Get(ctx, common.PostGreSQLPassword).GetString(),
-			Database:     c.Get(ctx, common.PostGreSQLDatabase).GetString(),
-			SSLMode:      c.Get(ctx, common.PostGreSQLSSLMode).GetString(),
-			MaxIdleConns: c.Get(ctx, common.PostGreSQLMaxIdleConns).GetInt(),
-			MaxOpenConns: c.Get(ctx, common.PostGreSQLMaxOpenConns).GetInt(),
+			Host:            c.Get(ctx, common.PostGreSQLHOST).GetString(),
+			Port:            c.Get(ctx, common.PostGreSQLPort).GetInt(),
+			Username:        c.Get(ctx, common.PostGreSQLUsername).GetString(),
+			Password:        c.Get(ctx, common.PostGreSQLPassword).GetString(),
+			Database:        c.Get(ctx, common.PostGreSQLDatabase).GetString(),
+			SSLMode:         c.Get(ctx, common.PostGreSQLSSLMode).GetString(),
+			MaxIdleConns:    c.Get(ctx, common.PostGreSQLMaxIdleConns).GetInt(),
+			MaxOpenConns:    c.Get(ctx, common.PostGreSQLMaxOpenConns).GetInt(),
+			ConnMaxLifetime: c.Get(ctx, common.PostGreSQLConnMaxLifetime).GetDuration(),
+			ConnMaxIdleTime: c.Get(ctx, common.PostGreSQLConnMaxIdleTime).GetDuration(),
 		},
 	}
 }

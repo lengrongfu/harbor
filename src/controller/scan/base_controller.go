@@ -55,8 +55,6 @@ var DefaultController = NewController()
 
 // const definitions
 const (
-	VendorTypeScanAll = "SCAN_ALL"
-
 	configRegistryEndpoint = "registryEndpoint"
 	configCoreInternalAddr = "coreInternalAddr"
 
@@ -68,11 +66,6 @@ const (
 	reportUUIDsKey = "report_uuids"
 	robotIDKey     = "robot_id"
 )
-
-func init() {
-	// keep only the latest created 5 scan all execution records
-	task.SetExecutionSweeperCount(VendorTypeScanAll, 5)
-}
 
 // uuidGenerator is a func template which is for generating UUID.
 type uuidGenerator func() (string, error)
@@ -301,7 +294,7 @@ func (bc *basicController) Scan(ctx context.Context, artifact *ar.Artifact, opti
 				"name": r.Name,
 			},
 		}
-		executionID, err := bc.execMgr.Create(ctx, job.ImageScanJob, r.ID, task.ExecutionTriggerManual, extraAttrs)
+		executionID, err := bc.execMgr.Create(ctx, job.ImageScanJobVendorType, artifact.ID, task.ExecutionTriggerManual, extraAttrs)
 		if err != nil {
 			return err
 		}
@@ -346,7 +339,7 @@ func (bc *basicController) Stop(ctx context.Context, artifact *ar.Artifact) erro
 }
 
 func (bc *basicController) ScanAll(ctx context.Context, trigger string, async bool) (int64, error) {
-	executionID, err := bc.execMgr.Create(ctx, VendorTypeScanAll, 0, trigger)
+	executionID, err := bc.execMgr.Create(ctx, job.ScanAllVendorType, 0, trigger)
 	if err != nil {
 		return 0, err
 	}
@@ -755,7 +748,7 @@ func (bc *basicController) DeleteReports(ctx context.Context, digests ...string)
 	return nil
 }
 
-func (bc *basicController) GetVulnerable(ctx context.Context, artifact *ar.Artifact, allowlist allowlist.CVESet) (*Vulnerable, error) {
+func (bc *basicController) GetVulnerable(ctx context.Context, artifact *ar.Artifact, allowlist allowlist.CVESet, allowlistIsExpired bool) (*Vulnerable, error) {
 	if artifact == nil {
 		return nil, errors.New("no way to get vulnerable for nil artifact")
 	}
@@ -816,7 +809,7 @@ func (bc *basicController) GetVulnerable(ctx context.Context, artifact *ar.Artif
 		var severity vuln.Severity
 
 		for _, v := range vuls {
-			if allowlist.Contains(v.ID) {
+			if !allowlistIsExpired && allowlist.Contains(v.ID) {
 				// Append the by passed CVEs specified in the allowlist
 				vulnerable.CVEBypassed = append(vulnerable.CVEBypassed, v.ID)
 
@@ -847,10 +840,11 @@ func (bc *basicController) makeRobotAccount(ctx context.Context, projectID int64
 	}
 
 	projectName := strings.Split(repository, "/")[0]
+	scannerPrefix := config.ScannerRobotPrefix(ctx)
 
 	robotReq := &robot.Robot{
 		Robot: model.Robot{
-			Name:        fmt.Sprintf("%s-%s", registration.Name, UUID),
+			Name:        fmt.Sprintf("%s-%s-%s", scannerPrefix, registration.Name, UUID),
 			Description: "for scan",
 			ProjectID:   projectID,
 		},
@@ -954,7 +948,7 @@ func (bc *basicController) launchScanJob(ctx context.Context, param *launchScanJ
 	params[sca.JobParameterRobot] = robotJSON
 
 	j := &task.Job{
-		Name: job.ImageScanJob,
+		Name: job.ImageScanJobVendorType,
 		Metadata: &job.Metadata{
 			JobKind: job.KindGeneric,
 		},
@@ -968,15 +962,6 @@ func (bc *basicController) launchScanJob(ctx context.Context, param *launchScanJ
 		artifactTagKey: param.Tag,
 		robotIDKey:     robot.ID,
 		reportUUIDsKey: reportUUIDs,
-	}
-
-	// NOTE: due to the limitation of the beego's orm, the List method of the task manager not support ?! operator for the jsonb field,
-	// we cann't list the tasks for scan reports of uuid1, uuid2 by SQL `SELECT * FROM task WHERE (extra_attrs->'report_uuids')::jsonb ?| array['uuid1', 'uuid2']`
-	// or by `SELECT * FROM task WHERE id IN (SELECT id FROM task WHERE (extra_attrs->'report_uuids')::jsonb ?| array['uuid1', 'uuid2'])`
-	// so save {"report:uuid1": "1", "report:uuid2": "2"} in the extra_attrs of the task, and then list it with
-	// SQL `SELECT * FROM task WHERE extra_attrs->>'report:uuid1' = '1'` in loop
-	for _, reportUUID := range reportUUIDs {
-		extraAttrs["report:"+reportUUID] = "1"
 	}
 
 	_, err = bc.taskMgr.Create(ctx, param.ExecutionID, j, extraAttrs)
@@ -1028,11 +1013,12 @@ func (bc *basicController) listScanTasks(ctx context.Context, reportUUIDs []stri
 }
 
 func (bc *basicController) getScanTask(ctx context.Context, reportUUID string) (*task.Task, error) {
-	query := q.New(q.KeyWords{"extra_attrs." + "report:" + reportUUID: "1"})
-	tasks, err := bc.taskMgr.List(bc.cloneCtx(ctx), query)
+	// NOTE: the method uses the postgres' unique operations and should consider here if support other database in the future.
+	tasks, err := bc.taskMgr.ListScanTasksByReportUUID(ctx, reportUUID)
 	if err != nil {
 		return nil, err
 	}
+
 	if len(tasks) == 0 {
 		return nil, errors.NotFoundError(nil).WithMessage("task for report %s not found", reportUUID)
 	}

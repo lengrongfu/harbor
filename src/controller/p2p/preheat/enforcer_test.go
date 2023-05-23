@@ -111,6 +111,7 @@ func (suite *EnforcerTestSuite) SetupSuite() {
 		context.TODO(),
 		mock.AnythingOfType("*artifact.Artifact"),
 		mock.AnythingOfType("models.CVESet"),
+		mock.AnythingOfType("bool"),
 	).Return(&scan.Vulnerable{Severity: &low, ScanStatus: "Success"}, nil)
 
 	fakeProCtl := &project.Controller{}
@@ -124,7 +125,6 @@ func (suite *EnforcerTestSuite) SetupSuite() {
 		Name:         "library",
 		CVEAllowlist: models2.CVEAllowlist{},
 		Metadata: map[string]string{
-			proMetaKeyContentTrust:  "true",
 			proMetaKeyVulnerability: "true",
 			proMetaKeySeverity:      "high",
 		},
@@ -259,12 +259,10 @@ func mockArtifacts() []*car.Artifact {
 					Tag: ta.Tag{
 						Name: "prod",
 					},
-					Signed: true,
 				}, {
 					Tag: ta.Tag{
 						Name: "stage",
 					},
-					Signed: false,
 				},
 			},
 			Labels: []*model.Label{
@@ -287,12 +285,10 @@ func mockArtifacts() []*car.Artifact {
 					Tag: ta.Tag{
 						Name: "latest",
 					},
-					Signed: true,
 				}, {
 					Tag: ta.Tag{
 						Name: "stage",
 					},
-					Signed: true,
 				},
 			},
 			Labels: []*model.Label{

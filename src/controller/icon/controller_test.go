@@ -16,7 +16,7 @@ package icon
 
 import (
 	"encoding/base64"
-	"io/ioutil"
+	"io"
 	"strings"
 	"testing"
 
@@ -38,12 +38,12 @@ type controllerTestSuite struct {
 	suite.Suite
 	controller Controller
 	argMgr     *artifact_testing.Manager
-	regCli     *registry.FakeClient
+	regCli     *registry.Client
 }
 
 func (c *controllerTestSuite) SetupTest() {
 	c.argMgr = &artifact_testing.Manager{}
-	c.regCli = &registry.FakeClient{}
+	c.regCli = &registry.Client{}
 	c.controller = &controller{
 		artMgr: c.argMgr,
 		regCli: c.regCli,
@@ -67,8 +67,8 @@ func (c *controllerTestSuite) TestGet() {
 			RepositoryName: "library/hello-world",
 		},
 	}, nil)
-	blob := ioutil.NopCloser(base64.NewDecoder(base64.StdEncoding, strings.NewReader(iconStr)))
-	c.regCli.On("PullBlob", mock.Anything, mock.Anything).Return(0, blob, nil)
+	blob := io.NopCloser(base64.NewDecoder(base64.StdEncoding, strings.NewReader(iconStr)))
+	c.regCli.On("PullBlob", mock.Anything, mock.Anything).Return(int64(0), blob, nil)
 	icon, err := c.controller.Get(nil, "sha256:364feec11702f7ee079ba81da723438373afb0921f3646e9e5015406ee150986")
 	c.Require().Nil(err)
 	c.Require().NotNil(icon)

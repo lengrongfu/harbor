@@ -46,10 +46,10 @@ const (
 	ResourceTypeProject    = "p"
 	ResourceTypeRepository = "r"
 	ResourceTypeImage      = "i"
-	ResourceTypeChart      = "c"
 
 	ExtEndpoint                      = "ext_endpoint"
 	AUTHMode                         = "auth_mode"
+	PrimaryAuthMode                  = "primary_auth_mode"
 	DatabaseType                     = "database_type"
 	PostGreSQLHOST                   = "postgresql_host"
 	PostGreSQLPort                   = "postgresql_port"
@@ -59,6 +59,8 @@ const (
 	PostGreSQLSSLMode                = "postgresql_sslmode"
 	PostGreSQLMaxIdleConns           = "postgresql_max_idle_conns"
 	PostGreSQLMaxOpenConns           = "postgresql_max_open_conns"
+	PostGreSQLConnMaxLifetime        = "postgresql_conn_max_lifetime"
+	PostGreSQLConnMaxIdleTime        = "postgresql_conn_max_idle_time"
 	SelfRegistration                 = "self_registration"
 	CoreURL                          = "core_url"
 	CoreLocalURL                     = "core_local_url"
@@ -90,7 +92,6 @@ const (
 	MaxJobWorkers                    = "max_job_workers"
 	TokenExpiration                  = "token_expiration"
 	AdminInitialPassword             = "admin_initial_password"
-	WithNotary                       = "with_notary"
 	WithTrivy                        = "with_trivy"
 	ScanAllPolicy                    = "scan_all_policy"
 	UAAEndpoint                      = "uaa_endpoint"
@@ -111,6 +112,7 @@ const (
 	OIDCVerifyCert                   = "oidc_verify_cert"
 	OIDCAdminGroup                   = "oidc_admin_group"
 	OIDCGroupsClaim                  = "oidc_groups_claim"
+	OIDCGroupFilter                  = "oidc_group_filter"
 	OIDCAutoOnboard                  = "oidc_auto_onboard"
 	OIDCExtraRedirectParms           = "oidc_extra_redirect_parms"
 	OIDCScope                        = "oidc_scope"
@@ -124,24 +126,21 @@ const (
 	GroupMember                       = "g"
 	ReadOnly                          = "read_only"
 	TrivyAdapterURL                   = "trivy_adapter_url"
-	NotaryURL                         = "notary_url"
 	DefaultCoreEndpoint               = "http://core:8080"
-	DefaultNotaryEndpoint             = "http://notary-server:4443"
 	LDAPGroupType                     = 1
 	HTTPGroupType                     = 2
 	OIDCGroupType                     = 3
 	LDAPGroupAdminDn                  = "ldap_group_admin_dn"
 	LDAPGroupMembershipAttribute      = "ldap_group_membership_attribute"
 	DefaultRegistryControllerEndpoint = "http://registryctl:8080"
-	WithChartMuseum                   = "with_chartmuseum"
-	ChartRepoURL                      = "chart_repository_url"
-	DefaultChartRepoURL               = "http://chartmuseum:9999"
 	DefaultPortalURL                  = "http://portal:8080"
 	DefaultRegistryCtlURL             = "http://registryctl:8080"
 	// Use this prefix to distinguish harbor user, the prefix contains a special character($), so it cannot be registered as a harbor user.
 	RobotPrefix = "robot$"
 	// System admin defined the robot name prefix.
 	RobotNamePrefix = "robot_name_prefix"
+	// Scanner robot name prefix
+	RobotScannerNamePrefix = "robot_scanner_name_prefix"
 	// Use this prefix to index user who tries to login with web hook token.
 	AuthProxyUserNamePrefix = "tokenreview$"
 	CoreConfigPath          = "/api/v2.0/internalconfig"
@@ -151,9 +150,6 @@ const (
 	OIDCLoginPath    = "/c/oidc/login"
 
 	AuthProxyRediretPath = "/c/authproxy/redirect"
-
-	ChartUploadCtxKey   = contextKey("chart_upload_event")
-	ChartDownloadCtxKey = contextKey("chart_download_event")
 
 	// Global notification enable configuration
 	NotificationEnable = "notification_enable"
@@ -217,4 +213,14 @@ const (
 	SkipAuditLogDatabase = "skip_audit_log_database"
 	// MaxAuditRetentionHour allowed in audit log purge
 	MaxAuditRetentionHour = 240000
+	// ScannerSkipUpdatePullTime
+	ScannerSkipUpdatePullTime = "scanner_skip_update_pulltime"
+
+	// SessionTimeout defines the web session timeout
+	SessionTimeout = "session_timeout"
+
+	// UIMaxLengthLimitedOfNumber is the max length that UI limited for type number
+	UIMaxLengthLimitedOfNumber = 10
+	// ExecutionStatusRefreshIntervalSeconds is the interval seconds for refreshing execution status
+	ExecutionStatusRefreshIntervalSeconds = "execution_status_refresh_interval_seconds"
 )

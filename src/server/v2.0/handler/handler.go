@@ -54,8 +54,8 @@ func New() http.Handler {
 		GCAPI:                 newGCAPI(),
 		QuotaAPI:              newQuotaAPI(),
 		RetentionAPI:          newRetentionAPI(),
-		WebhookAPI:            newNotificationPolicyAPI(),
-		WebhookjobAPI:         newNotificationJobAPI(),
+		WebhookAPI:            newWebhookAPI(),
+		WebhookjobAPI:         newWebhookJobAPI(),
 		ImmutableAPI:          newImmutableAPI(),
 		OIDCAPI:               newOIDCAPI(),
 		SystemCVEAllowlistAPI: newSystemCVEAllowListAPI(),
@@ -67,6 +67,8 @@ func New() http.Handler {
 		ProjectMetadataAPI:    newProjectMetadaAPI(),
 		PurgeAPI:              newPurgeAPI(),
 		ScanDataExportAPI:     newScanDataExportAPI(),
+		JobserviceAPI:         newJobServiceAPI(),
+		ScheduleAPI:           newScheduleAPI(),
 	})
 	if err != nil {
 		log.Fatal(err)

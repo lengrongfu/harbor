@@ -24,6 +24,7 @@ import (
 	"github.com/goharbor/harbor/src/jobservice/job"
 	"github.com/goharbor/harbor/src/lib/errors"
 	"github.com/goharbor/harbor/src/lib/log"
+	"github.com/goharbor/harbor/src/lib/orm"
 	"github.com/goharbor/harbor/src/lib/q"
 	"github.com/goharbor/harbor/src/pkg/task"
 )
@@ -68,6 +69,8 @@ type Scheduler interface {
 	GetSchedule(ctx context.Context, id int64) (*Schedule, error)
 	// ListSchedules according to the query
 	ListSchedules(ctx context.Context, query *q.Query) ([]*Schedule, error)
+	// CountSchedules counts the schedules according to the query
+	CountSchedules(ctx context.Context, query *q.Query) (int64, error)
 }
 
 // New returns an instance of the default scheduler
@@ -83,6 +86,10 @@ type scheduler struct {
 	dao     DAO
 	execMgr task.ExecutionManager
 	taskMgr task.Manager
+}
+
+func (s *scheduler) CountSchedules(ctx context.Context, query *q.Query) (int64, error) {
+	return s.dao.Count(ctx, query)
 }
 
 func (s *scheduler) Schedule(ctx context.Context, vendorType string, vendorID int64, cronType string,
@@ -127,29 +134,40 @@ func (s *scheduler) Schedule(ctx context.Context, vendorType string, vendorID in
 	}
 	sched.ExtraAttrs = string(extrasData)
 
-	// create schedule record
-	// when checkin hook comes, the database record must exist,
-	// so the database record must be created first before submitting job
-	id, err := s.dao.Create(ctx, sched)
-	if err != nil {
+	var scheduleID, taskID int64
+	// ensureTask makes sure the task has been created at the end
+	ensureTask := func(ctx context.Context) error {
+		// create schedule record
+		// when checkin hook comes, the database record must exist,
+		// so the database record must be created first before submitting job
+		scheduleID, err = s.dao.Create(ctx, sched)
+		if err != nil {
+			return err
+		}
+		// create execution by schedule id
+		execID, err := s.execMgr.Create(ctx, JobNameScheduler, scheduleID, task.ExecutionTriggerManual, params)
+		if err != nil {
+			return err
+		}
+		// create task by execution id, maybe failed if error to submit job to jobservice,
+		// so wrap these 3 actions as a transaction.
+		taskID, err = s.taskMgr.Create(ctx, execID, &task.Job{
+			Name: JobNameScheduler,
+			Metadata: &job.Metadata{
+				JobKind: job.KindPeriodic,
+				Cron:    cron,
+			},
+		})
+		if err != nil {
+			return err
+		}
+		return nil
+	}
+
+	if err = orm.WithTransaction(ensureTask)(orm.SetTransactionOpNameToContext(ctx, "tx-ensure-schedule-task")); err != nil {
 		return 0, err
 	}
 
-	execID, err := s.execMgr.Create(ctx, JobNameScheduler, id, task.ExecutionTriggerManual, params)
-	if err != nil {
-		return 0, err
-	}
-
-	taskID, err := s.taskMgr.Create(ctx, execID, &task.Job{
-		Name: JobNameScheduler,
-		Metadata: &job.Metadata{
-			JobKind: job.KindPeriodic,
-			Cron:    cron,
-		},
-	})
-	if err != nil {
-		return 0, err
-	}
 	// make sure the created task is stopped if got any error in the following steps
 	defer func() {
 		if err == nil {
@@ -173,7 +191,7 @@ func (s *scheduler) Schedule(ctx context.Context, vendorType string, vendorID in
 		return 0, err
 	}
 
-	return id, nil
+	return scheduleID, nil
 }
 
 func (s *scheduler) UnScheduleByID(ctx context.Context, id int64) error {
@@ -190,7 +208,13 @@ func (s *scheduler) UnScheduleByID(ctx context.Context, id int64) error {
 		executionID := executions[0].ID
 		// stop the execution
 		if err = s.execMgr.StopAndWait(ctx, executionID, 10*time.Second); err != nil {
-			return err
+			if err == task.ErrTimeOut {
+				// Avoid return this error to the UI, log time out error and continue
+				// the execution will be finally stopped by jobservice
+				log.Debugf("time out when stopping the execution %d, but the execution will be stopped eventually", executionID)
+			} else {
+				return err
+			}
 		}
 		// delete execution
 		if err = s.execMgr.Delete(ctx, executionID); err != nil {

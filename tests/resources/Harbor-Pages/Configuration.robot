@@ -185,34 +185,6 @@ Switch To System Replication
 Should Verify Remote Cert Be Enabled
     Checkbox Should Not Be Selected  xpath=//*[@id='clr-checkbox-verifyRemoteCert']
 
-## Email
-Switch To Email
-    Switch To Configure
-    Retry Element Click  xpath=//*[@id='config-email']
-    Sleep  1
-
-Config Email
-    Input Text  xpath=//*[@id='mailServer']  smtp.harbortest.com
-    Input Text  xpath=//*[@id='emailPort']  25
-    Input Text  xpath=//*[@id='emailUsername']  example@harbortest.com
-    Input Text  xpath=//*[@id='emailPassword']  example
-    Input Text  xpath=//*[@id='emailFrom']  example<example@harbortest.com>
-    Sleep  1
-    Retry Element Click  xpath=//*[@id='emailSSL-wrapper']/label
-    Sleep  1
-    Retry Element Click  xpath=//*[@id='emailInsecure-wrapper']/label
-    Sleep  1
-    Retry Element Click  xpath=${config_email_save_button_xpath}
-    Sleep  6
-
-Verify Email
-    Textfield Value Should Be  xpath=//*[@id='mailServer']  smtp.harbortest.com
-    Textfield Value Should Be  xpath=//*[@id='emailPort']  25
-    Textfield Value Should Be  xpath=//*[@id='emailUsername']  example@harbortest.com
-    Textfield Value Should Be  xpath=//*[@id='emailFrom']  example<example@harbortest.com>
-    Checkbox Should Be Selected  xpath=//*[@id='emailSSL']
-    Checkbox Should Not Be Selected  xpath=//*[@id='emailInsecure']
-
 Set Scan All To None
     Retry Element Click  //vulnerability-config//select
     Retry Element Click  //vulnerability-config//select/option[@value='none']
@@ -391,11 +363,17 @@ Edit A Distribution
 Set Audit Log Forward
     [Arguments]  ${syslog_endpoint}  ${expected_msg}
     Switch To System Settings
-    Run Keyword If  '${syslog_endpoint}' == '${null}'  Retry Clear Element Text By Press Keys  ${audit_log_forward_syslog_endpoint_input_id}
+    Run Keyword If  '${syslog_endpoint}' == '${null}'  Press Keys  ${audit_log_forward_syslog_endpoint_input_id}  CTRL+a  BACKSPACE
     ...  ELSE  Retry Text Input  ${audit_log_forward_syslog_endpoint_input_id}  ${syslog_endpoint}
     Retry Double Keywords When Error  Retry Element Click  ${config_save_button_xpath}  Retry Wait Until Page Contains  ${expected_msg}
 
 Enable Skip Audit Log Database
     Switch To System Settings
     Retry Double Keywords When Error  Click Element  ${skip_audit_log_database_label}  Checkbox Should Be Selected  ${skip_audit_log_database_checkbox}
+    Retry Double Keywords When Error  Retry Element Click  ${config_save_button_xpath}  Retry Wait Until Page Contains  Configuration has been successfully saved.
+
+Set Up Retain Image Last Pull Time
+    [Arguments]  ${action}
+    Run Keyword If  '${action}'=='enable'  Retry Double Keywords When Error  Click Element  ${retain_image_last_pull_time_label}  Checkbox Should Be Selected  ${retain_image_last_pull_time_checkbox}
+    ...  ELSE  Retry Double Keywords When Error  Click Element  ${retain_image_last_pull_time_label}  Checkbox Should Not Be Selected  ${retain_image_last_pull_time_checkbox}
     Retry Double Keywords When Error  Retry Element Click  ${config_save_button_xpath}  Retry Wait Until Page Contains  Configuration has been successfully saved.

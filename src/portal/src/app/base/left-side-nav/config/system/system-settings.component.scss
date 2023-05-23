@@ -6,7 +6,7 @@
 .clr-form-horizontal {
   .clr-form-control {
     & >.clr-control-label {
-      width: 14rem;
+      width: 15rem;
     }
   }
 
@@ -153,4 +153,15 @@
 
 .pro-creation {
   width: 12rem;
+}
+
+input::-webkit-outer-spin-button,
+input::-webkit-inner-spin-button {
+  appearance: none;
+  margin: 0;
+}
+
+/* Firefox */
+input[type=number] {
+  appearance: textfield;
 }

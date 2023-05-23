@@ -11,7 +11,7 @@ Contributors are encouraged to collaborate using the following resources in addi
 
 * [Bi-weekly public community meetings][community-meetings]
   * Catch up with [past meetings on YouTube][past-meetings]
-* Chat with us on the CNCF Slack ([get an invite here][cncf-slack] )
+* Chat with us on the CNCF Slack ([get an invitation here][cncf-slack] )
   * [#harbor][users-slack] for end-user discussions
   * [#harbor-dev][dev-slack] for development of Harbor
 * Want long-form communication instead of Slack? We have two distributions lists:
@@ -25,13 +25,13 @@ Follow us on Twitter at [@project_harbor][twitter]
 ### Fork Repository
 
 Fork the Harbor repository on GitHub to your personal account.
-```
+```sh
 #Set golang environment
 export GOPATH=$HOME/go
 mkdir -p $GOPATH/src/github.com/goharbor
 
 #Get code
-go get github.com/goharbor/harbor
+git clone git@github.com:goharbor/harbor.git
 cd $GOPATH/src/github.com/goharbor/harbor
 
 #Track repository under your personal account
@@ -47,7 +47,7 @@ To build the project, please refer the [build](https://goharbor.io/docs/edge/bui
 
 ### Repository Structure
 
-Here is the basic structure of the harbor code base. Some of the key folders / files are commented for your references.
+Here is the basic structure of the harbor code base. Some key folders / files are commented for your references.
 ```
 .
 ...
@@ -164,7 +164,8 @@ Harbor backend is written in [Go](http://golang.org/). If you don't have a Harbo
 |   2.4    |    1.17.7     |
 |   2.5    |    1.17.7     |
 |   2.6    |    1.18.6     |
-|   2.7    |    1.19.2     |
+|   2.7    |    1.19.4     |
+|   2.8    |    1.20.4     |
 
 Ensure your GOPATH and PATH have been configured in accordance with the Go environment instructions.
 
@@ -192,7 +193,7 @@ Harbor web UI is built based on [Clarity](https://vmware.github.io/clarity/) and
 |   2.3    |      10.1.2        |       4.0.2        |
 |   2.4    |      12.0.3        |       5.3.0        |
 
-To run the Web UI code, please refer to the UI [start](https://github.com/goharbor/harbor/blob/master/src/portal/README.md) guideline.
+To run the Web UI code, please refer to the UI [start](https://github.com/goharbor/harbor/tree/main/src/portal) guideline.
 
 To run the code, please refer to the [build](https://goharbor.io/docs/edge/build-customize-contribute/compile-guide/) guideline.
 
@@ -200,42 +201,42 @@ To run the code, please refer to the [build](https://goharbor.io/docs/edge/build
 
 PR are always welcome, even if they only contain small fixes like typos or a few lines of code. If there will be a significant effort, please document it as an issue and get a discussion going before starting to work on it.
 
-Please submit a PR broken down into small changes bit by bit. A PR consisting of a lot features and code changes may be hard to review. It is recommended to submit PRs in an incremental fashion.
+Please submit a PR broken down into small changes bit by bit. A PR consisting of a lot of features and code changes may be hard to review. It is recommended to submit PRs in an incremental fashion.
 
-Note: If you split your pull request to small changes, please make sure any of the changes goes to master will not break anything. Otherwise, it can not be merged until this feature complete.
+Note: If you split your pull request to small changes, please make sure any of the changes goes to `main` will not break anything. Otherwise, it can not be merged until this feature complete.
 
 ### Fork and clone
 
 Fork the Harbor repository and clone the code to your local workspace. Per Go's [workspace instructions](https://golang.org/doc/code.html#Workspaces), place Harbor's code on your `GOPATH`. Refer to section [Fork Repository](#fork-repository) for details.
 
 Define a local working directory:
-```
+```sh
 working_dir=$GOPATH/src/github.com/goharbor
 ```
 
 Set user to match your github profile name:
-```
+```sh
 user={your github profile name}
 ```
 
 Both `$working_dir` and `$user` are mentioned in the figure above.
 
 ### Branch
-Changes should be made on your own fork in a new branch. The branch should be named  `XXX-description` where XXX is the number of the issue. PR should be rebased on top of master without multiple branches mixed into the PR. If your PR do not merge cleanly, use commands listed below to get it up to date.
+Changes should be made on your own fork in a new branch. The branch should be named  `XXX-description` where XXX is the number of the issue. PR should be rebased on top of `main` without multiple branches mixed into the PR. If your PR do not merge cleanly, use commands listed below to get it up to date.
 
-```
+```sh
 #goharbor is the origin upstream
 
 cd $working_dir/harbor
 git fetch goharbor
-git checkout master
-git rebase goharbor/master
+git checkout main
+git rebase goharbor/main
 ```
 
-Branch from the updated `master` branch:
+Branch from the updated `main` branch:
 
-```
-git checkout -b my_feature master
+```sh
+git checkout -b my_feature main
 ```
 
 ### Develop, Build and Test
@@ -246,11 +247,11 @@ Try to limit column width to 120 characters for both code and markdown documents
 
 As we are enforcing standards set by [golint](https://github.com/golang/lint), please always run golint on source code before committing your changes. If it reports an issue, in general, the preferred action is to fix the code to comply with the linter's recommendation
 because golint gives suggestions according to the stylistic conventions listed in [Effective Go](https://golang.org/doc/effective_go.html) and the [CodeReviewComments](https://github.com/golang/go/wiki/CodeReviewComments).
-```
+```sh
 #Install fgt and golint
 
-go get -u golang.org/x/lint/golint
-go get github.com/GeertJohan/fgt
+go install golang.org/x/lint/golint@latest
+go install github.com/GeertJohan/fgt@latest
 
 #In the #working_dir/harbor, run
 
@@ -258,16 +259,16 @@ go list ./... | grep -v -E 'vendor|tests' | xargs -L1 fgt golint
 
 ```
 
-Unit test cases should be added to cover the new code. Unit test framework for backend services is using [go testing](https://golang.org/doc/code.html#Testing). The UI library test framework is built based on [Jasmine](http://jasmine.github.io/2.4/introduction.html) and [Karma](https://karma-runner.github.io/1.0/index.html), please refer to [Angular Testing](https://angular.io/guide/testing) for more details.
+Unit test cases should be added to cover the new code. Unit test framework for backend services is using [go testing](https://golang.org/doc/code.html#Testing). The UI library test framework is built based on [Jasmine](https://jasmine.github.io/) and [Karma](https://karma-runner.github.io/1.0/index.html), please refer to [Angular Testing](https://angular.io/guide/testing) for more details.
 
 Run go test cases:
-```
+```sh
 #cd #working_dir/src/[package]
 go test -v ./...
 ```
 
 Run UI library test cases:
-```
+```sh
 #cd #working_dir/src/portal/lib
 npm run test
 ```
@@ -276,16 +277,16 @@ To build the code, please refer to [build](https://goharbor.io/docs/edge/build-c
 
 **Note**: from v2.0, Harbor uses [go-swagger](https://github.com/go-swagger/go-swagger) to generate API server from Swagger 2.0 (aka [OpenAPI 2.0](https://github.com/OAI/OpenAPI-Specification/blob/master/versions/2.0.md)). To add or change the APIs, first update the `api/v2.0/swagger.yaml` file, then run `make gen_apis` to generate the API server, finally, implement or update the API handlers in `src/server/v2.0/handler` package.
 
-As now Harbor uses `controller/manager/dao` programming model, we suggest to use [testify mock](github.com/stretchr/testify/mock) to test `controller` and `manager`. Harbor integrates [mockery](https://github.com/vektra/mockery) to generate mocks for golang interfaces using the testify mock package. To generate mocks for the interface, first add `//go:generate mockery xxx` comment with mockery command in the subpackages of `src/testing`, then run `make gen_mocks` to generate mocks.
+As now Harbor uses `controller/manager/dao` programming model, we suggest to use [testify mock](https://github.com/stretchr/testify/blob/master/mock/doc.go) to test `controller` and `manager`. Harbor integrates [mockery](https://github.com/vektra/mockery) to generate mocks for golang interfaces using the testify mock package. To generate mocks for the interface, first add `//go:generate mockery xxx` comment with mockery command in the subpackages of `src/testing`, then run `make gen_mocks` to generate mocks.
 
 ###  Keep sync with upstream
 
 
-Once your branch gets out of sync with the goharbor/master branch, use the following commands to update:
+Once your branch gets out of sync with the goharbor/main branch, use the following commands to update:
 ```bash
 git checkout my_feature
 git fetch -a
-git rebase goharbor/master
+git rebase goharbor/main
 
 ```
 
@@ -293,7 +294,7 @@ Please use `fetch / rebase` (as shown above) instead of `git pull`. `git pull` d
 
 ### Commit
 
-As Harbor has integrated the [DCO (Developer Certificate of Origin)](https://probot.github.io/apps/dco/) check tool, contributors are required to sign-off that they adhere to those requirements by adding a `Signed-off-by` line to the commit messages. Git has even provided a `-s` command line option to append that automatically to your commit messages, please use it when you commit your changes.
+As Harbor has integrated the [DCO (Developer Certificate of Origin)](https://probot.github.io/apps/dco/) check tool, contributors are required to sign off that they adhere to those requirements by adding a `Signed-off-by` line to the commit messages. Git has even provided a `-s` command line option to append that automatically to your commit messages, please use it when you commit your changes.
 
 ```bash
 $ git commit -s -m 'This is my commit message'
@@ -310,13 +311,13 @@ The commit message should follow the convention on [How to Write a Git Commit Me
 
 To help write conformant commit messages, it is recommended to set up the [git-good-commit](https://github.com/tommarshall/git-good-commit) commit hook. Run this command in the Harbor repo's root directory:
 
-```
+```sh
 curl https://cdn.rawgit.com/tommarshall/git-good-commit/v0.6.1/hook.sh > .git/hooks/commit-msg && chmod +x .git/hooks/commit-msg
 ```
 
 ### Automated Testing
 Once your pull request has been opened, harbor will run two CI pipelines against it.
-1. In the travis CI, your source code will be checked via `golint`, `go vet` and `go race` that makes sure the code is readable, safe and correct. Also all of unit tests will be triggered via `go test` against the pull request. What you need to pay attention to is the travis result and the coverage report.
+1. In the travis CI, your source code will be checked via `golint`, `go vet` and `go race` that makes sure the code is readable, safe and correct. Also, all of unit tests will be triggered via `go test` against the pull request. What you need to pay attention to is the travis result and the coverage report.
 * If any failure in travis, you need to figure out whether it is introduced by your commits.
 * If the coverage dramatic decline, you need to commit unit test to coverage your code.
 2. In the drone CI, the E2E test will be triggered against the pull request. Also, the source code will be checked via `gosec`, and the result is stored in google storage for later analysis. The pipeline is about to build and install harbor from source code, then to run four very basic E2E tests to validate the basic functionalities of harbor, like:
@@ -327,7 +328,7 @@ Once your pull request has been opened, harbor will run two CI pipelines against
 
 ### Push and Create PR
 When ready for review, push your branch to your fork repository on `github.com`:
-```
+```sh
 git push --force-with-lease $user my_feature
 
 ```
@@ -364,11 +365,22 @@ The main location for the documentation is the [website repository](https://gith
 
 Documents are written with Markdown. See [Writing on GitHub](https://help.github.com/categories/writing-on-github/) for more details.
 
-## Design new features
+## Develop and propose new features.
+### The following simple process can be used to submit new features or changes to the existing code.
 
-You can propose new designs for existing Harbor features. You can also design entirely new features, Please submit a proposal in GitHub.(https://github.com/goharbor/community/tree/master/proposals). Harbor maintainers will review this proposal as soon as possible. This is necessary to ensure the overall architecture is consistent and to avoid duplicated work in the roadmap.
+- See if your feature is already being worked on. Check both the [Issues](https://github.com/goharbor/harbor/issues) and the [PRs](https://github.com/goharbor/harbor/pulls) in the main Harbor repository as well as the [Community repository](https://github.com/goharbor/community).
+- Submit(open PR) the new proposal at [community/proposals/new](https://github.com/goharbor/community/tree/main/proposals/new) using the already existing [template](https://github.com/goharbor/community/blob/main/proposals/TEMPLATE.md)
+- The proposal must be labeled as "kind/proposal" - check examples [here](https://github.com/goharbor/community/pulls?q=is%3Apr+is%3Aopen+sort%3Aupdated-desc+label%3Akind%2Fproposal)
+- The proposal can be modified and adapted to meet the requirements from the community, other maintainers and contributors. The overall architecture needs to be consistent to avoid duplicate work in the [Roadmap](https://github.com/goharbor/harbor/wiki#roadmap).
+- Proposal should be discussed at Community meeting [Community Meeting agenda](https://github.com/goharbor/community/wiki/Harbor-Community-Meetings) to be presented to maintainers and contributors.
+- When reviewed and approved it can be implemented either by the original submitter or anyone else from the community which we highly encourage, as the project is community driven. Open PRs in the respective repositories with all the necessary code and test changes as described in the current document.
+- Once implemented or during the implementation, the PRs are reviewed by maintainers and contributors, following the best practices and methods.
+- After merging the new PRs, the proposal must be moved to [community/proposals](https://github.com/goharbor/community/tree/main/proposals) and marked as done!
+- You have made Harbor even better, congratulations. Thank you!
 
-[community-meetings]: https://github.com/goharbor/community/blob/master/MEETING_SCHEDULE.md
+
+
+[community-meetings]: https://github.com/goharbor/community/blob/main/MEETING_SCHEDULE.md
 [past-meetings]: https://www.youtube.com/playlist?list=PLgInP-D86bCwTC0DYAa1pgupsQIAWPomv
 [users-slack]: https://cloud-native.slack.com/archives/CC1E09J6S
 [dev-slack]: https://cloud-native.slack.com/archives/CC1E0J0MC

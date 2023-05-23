@@ -1,3 +1,17 @@
+// Copyright Project Harbor Authors
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//    http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package handler
 
 import (
@@ -81,6 +95,9 @@ func (ia *immutableAPI) DeleteImmuRule(ctx context.Context, params operation.Del
 }
 
 func (ia *immutableAPI) UpdateImmuRule(ctx context.Context, params operation.UpdateImmuRuleParams) middleware.Responder {
+	if params.ImmutableRuleID != params.ImmutableRule.ID {
+		return ia.SendError(ctx, errors.BadRequestError(fmt.Errorf("the immutable_rule_id doesn't match the id in the payload body of ImmutableRule")))
+	}
 	projectNameOrID := parseProjectNameOrID(params.ProjectNameOrID, params.XIsResourceName)
 	if err := ia.RequireProjectAccess(ctx, projectNameOrID, rbac.ActionUpdate, rbac.ResourceImmutableTag); err != nil {
 		return ia.SendError(ctx, err)

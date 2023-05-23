@@ -21,8 +21,6 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/suite"
 
-	"github.com/goharbor/harbor/src/common"
-	"github.com/goharbor/harbor/src/lib/config"
 	"github.com/goharbor/harbor/src/lib/errors"
 	"github.com/goharbor/harbor/src/lib/orm"
 	pkg_artifact "github.com/goharbor/harbor/src/pkg/artifact"
@@ -54,11 +52,6 @@ func (c *controllerTestSuite) SetupTest() {
 		artMgr:       c.artMgr,
 		immutableMtr: c.immutableMtr,
 	}
-
-	var tagCtlTestConfig = map[string]interface{}{
-		common.WithNotary: false,
-	}
-	config.InitWithSettings(tagCtlTestConfig)
 }
 
 func (c *controllerTestSuite) TestEnsureTag() {
@@ -235,4 +228,30 @@ func (c *controllerTestSuite) TestAssembleTag() {
 
 func TestControllerTestSuite(t *testing.T) {
 	suite.Run(t, &controllerTestSuite{})
+}
+
+func Test_isValidTag(t *testing.T) {
+	type args struct {
+		name string
+	}
+	tests := []struct {
+		name string
+		args args
+		want bool
+	}{
+		{"normal", args{`latest`}, true},
+		{"invalid_char", args{`latest&delete`}, false},
+		{"invalid_start", args{`-abc`}, false},
+		{"invalid_start_&", args{`&asdf`}, false},
+		{"valid_start", args{`_abc`}, true},
+		{"pure_number", args{`123456`}, true},
+		{"empty", args{` `}, false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := isValidTag(tt.args.name); got != tt.want {
+				t.Errorf("isValidTag() = %v, want %v", got, tt.want)
+			}
+		})
+	}
 }

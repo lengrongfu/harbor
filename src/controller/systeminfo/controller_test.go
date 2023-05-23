@@ -31,8 +31,6 @@ func (s *sysInfoCtlTestSuite) SetupTest() {
 		common.RegistryStorageProviderName: "filesystem",
 		common.ReadOnly:                    false,
 		common.NotificationEnable:          false,
-		common.WithChartMuseum:             false,
-		common.WithNotary:                  true,
 	}
 
 	config.InitWithSettings(conf)
@@ -69,7 +67,6 @@ func (s *sysInfoCtlTestSuite) TestGetInfo() {
 				HarborVersion:    "test-fakeid",
 				SelfRegistration: true,
 				Protected: &protectedData{
-					WithNotary:              true,
 					RegistryURL:             "test.goharbor.io",
 					ExtURL:                  "https://test.goharbor.io",
 					ProjectCreationRestrict: "everyone",
@@ -77,7 +74,6 @@ func (s *sysInfoCtlTestSuite) TestGetInfo() {
 					HasCARoot:                   true,
 					RegistryStorageProviderName: "filesystem",
 					ReadOnly:                    false,
-					WithChartMuseum:             false,
 					NotificationEnable:          false,
 				},
 			},

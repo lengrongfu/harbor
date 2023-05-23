@@ -1,36 +1,21 @@
-//  Copyright Project Harbor Authors
+// Copyright Project Harbor Authors
 //
-//  Licensed under the Apache License, Version 2.0 (the "License");
-//  you may not use this file except in compliance with the License.
-//  You may obtain a copy of the License at
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
 //
-//     http://www.apache.org/licenses/LICENSE-2.0
+//    http://www.apache.org/licenses/LICENSE-2.0
 //
-//  Unless required by applicable law or agreed to in writing, software
-//  distributed under the License is distributed on an "AS IS" BASIS,
-//  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-//  See the License for the specific language governing permissions and
-//  limitations under the License.
-
-//  Copyright Project Harbor Authors
-//
-//  Licensed under the Apache License, Version 2.0 (the "License");
-//  you may not use this file except in compliance with the License.
-//  You may obtain a copy of the License at
-//
-//     http://www.apache.org/licenses/LICENSE-2.0
-//
-//  Unless required by applicable law or agreed to in writing, software
-//  distributed under the License is distributed on an "AS IS" BASIS,
-//  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-//  See the License for the specific language governing permissions and
-//  limitations under the License.
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
 
 package config
 
 import (
 	"context"
-	"errors"
 	"os"
 	"strconv"
 	"strings"
@@ -142,29 +127,14 @@ func GetGCTimeWindow() int64 {
 	return common.DefaultGCTimeWindowHours
 }
 
-// WithNotary returns a bool value to indicate if Harbor's deployed with Notary
-func WithNotary() bool {
-	return DefaultMgr().Get(backgroundCtx, common.WithNotary).GetBool()
+// GetExecutionStatusRefreshIntervalSeconds returns the interval seconds for the refresh of execution status.
+func GetExecutionStatusRefreshIntervalSeconds() int64 {
+	return DefaultMgr().Get(backgroundCtx, common.ExecutionStatusRefreshIntervalSeconds).GetInt64()
 }
 
 // WithTrivy returns a bool value to indicate if Harbor's deployed with Trivy.
 func WithTrivy() bool {
 	return DefaultMgr().Get(backgroundCtx, common.WithTrivy).GetBool()
-}
-
-// WithChartMuseum returns a bool to indicate if chartmuseum is deployed with Harbor.
-func WithChartMuseum() bool {
-	return DefaultMgr().Get(backgroundCtx, common.WithChartMuseum).GetBool()
-}
-
-// GetChartMuseumEndpoint returns the endpoint of the chartmuseum service
-// otherwise an non nil error is returned
-func GetChartMuseumEndpoint() (string, error) {
-	chartEndpoint := strings.TrimSpace(DefaultMgr().Get(backgroundCtx, common.ChartRepoURL).GetString())
-	if len(chartEndpoint) == 0 {
-		return "", errors.New("empty chartmuseum endpoint")
-	}
-	return chartEndpoint, nil
 }
 
 // ExtEndpoint returns the external URL of Harbor: protocol://host:port
@@ -220,12 +190,6 @@ func InternalTokenServiceEndpoint() string {
 	return InternalCoreURL() + "/service/token"
 }
 
-// InternalNotaryEndpoint returns notary server endpoint for internal communication between Harbor containers
-// This is currently a conventional value and can be unaccessible when Harbor is not deployed with Notary.
-func InternalNotaryEndpoint() string {
-	return DefaultMgr().Get(backgroundCtx, common.NotaryURL).GetString()
-}
-
 // TrivyAdapterURL returns the endpoint URL of a Trivy adapter instance, by default it's the one deployed within Harbor.
 func TrivyAdapterURL() string {
 	return DefaultMgr().Get(backgroundCtx, common.TrivyAdapterURL).GetString()
@@ -269,19 +233,29 @@ func CacheExpireHours() int {
 	return hours
 }
 
+// ScannerRobotPrefix returns the scanner of robot account prefix.
+func ScannerRobotPrefix(ctx context.Context) string {
+	if DefaultMgr() != nil {
+		return DefaultMgr().Get(ctx, common.RobotScannerNamePrefix).GetString()
+	}
+	return os.Getenv("ROBOT_SCANNER_NAME_PREFIX")
+}
+
 // Database returns database settings
 func Database() (*models.Database, error) {
 	database := &models.Database{}
 	database.Type = DefaultMgr().Get(backgroundCtx, common.DatabaseType).GetString()
 	postgresql := &models.PostGreSQL{
-		Host:         DefaultMgr().Get(backgroundCtx, common.PostGreSQLHOST).GetString(),
-		Port:         DefaultMgr().Get(backgroundCtx, common.PostGreSQLPort).GetInt(),
-		Username:     DefaultMgr().Get(backgroundCtx, common.PostGreSQLUsername).GetString(),
-		Password:     DefaultMgr().Get(backgroundCtx, common.PostGreSQLPassword).GetPassword(),
-		Database:     DefaultMgr().Get(backgroundCtx, common.PostGreSQLDatabase).GetString(),
-		SSLMode:      DefaultMgr().Get(backgroundCtx, common.PostGreSQLSSLMode).GetString(),
-		MaxIdleConns: DefaultMgr().Get(backgroundCtx, common.PostGreSQLMaxIdleConns).GetInt(),
-		MaxOpenConns: DefaultMgr().Get(backgroundCtx, common.PostGreSQLMaxOpenConns).GetInt(),
+		Host:            DefaultMgr().Get(backgroundCtx, common.PostGreSQLHOST).GetString(),
+		Port:            DefaultMgr().Get(backgroundCtx, common.PostGreSQLPort).GetInt(),
+		Username:        DefaultMgr().Get(backgroundCtx, common.PostGreSQLUsername).GetString(),
+		Password:        DefaultMgr().Get(backgroundCtx, common.PostGreSQLPassword).GetPassword(),
+		Database:        DefaultMgr().Get(backgroundCtx, common.PostGreSQLDatabase).GetString(),
+		SSLMode:         DefaultMgr().Get(backgroundCtx, common.PostGreSQLSSLMode).GetString(),
+		MaxIdleConns:    DefaultMgr().Get(backgroundCtx, common.PostGreSQLMaxIdleConns).GetInt(),
+		MaxOpenConns:    DefaultMgr().Get(backgroundCtx, common.PostGreSQLMaxOpenConns).GetInt(),
+		ConnMaxLifetime: DefaultMgr().Get(backgroundCtx, common.PostGreSQLConnMaxLifetime).GetDuration(),
+		ConnMaxIdleTime: DefaultMgr().Get(backgroundCtx, common.PostGreSQLConnMaxIdleTime).GetDuration(),
 	}
 	database.PostGreSQL = postgresql
 

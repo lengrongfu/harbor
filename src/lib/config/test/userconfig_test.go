@@ -42,9 +42,7 @@ func TestConfig(t *testing.T) {
 	dao.PrepareTestData([]string{"delete from properties where k='scan_all_policy'"}, []string{})
 	defaultCACertPath = path.Join(currPath(), "test", "ca.crt")
 	c := map[string]interface{}{
-		common.WithTrivy:       false,
-		common.WithChartMuseum: false,
-		common.WithNotary:      false,
+		common.WithTrivy: false,
 	}
 	Init()
 
@@ -132,10 +130,6 @@ func TestConfig(t *testing.T) {
 		t.Fatalf("failed to get onldy admin create project: %v", err)
 	}
 
-	if _, err := Email(ctx); err != nil {
-		t.Fatalf("failed to get email settings: %v", err)
-	}
-
 	if _, err := Database(); err != nil {
 		t.Fatalf("failed to get database: %v", err)
 	}
@@ -143,12 +137,6 @@ func TestConfig(t *testing.T) {
 	defaultConfig := test.GetDefaultConfigMap()
 	Upload(defaultConfig)
 
-	if InternalNotaryEndpoint() != "http://notary-server:4443" {
-		t.Errorf("Unexpected notary endpoint: %s", InternalNotaryEndpoint())
-	}
-	if WithNotary() {
-		t.Errorf("Withnotary should be false")
-	}
 	if WithTrivy() {
 		t.Errorf("WithTrivy should be false")
 	}

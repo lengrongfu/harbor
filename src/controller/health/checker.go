@@ -1,4 +1,4 @@
-// Copyright 2019 Project Harbor Authors
+// Copyright Project Harbor Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -17,13 +17,13 @@ package health
 import (
 	"context"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"strings"
 	"sync"
 	"time"
 
-	"github.com/beego/beego/orm"
+	"github.com/beego/beego/v2/client/orm"
 	"github.com/docker/distribution/health"
 
 	httputil "github.com/goharbor/harbor/src/common/http"
@@ -59,7 +59,7 @@ func HTTPStatusCodeHealthChecker(method string, url string, header http.Header,
 		}
 		defer resp.Body.Close()
 		if resp.StatusCode != statusCode {
-			data, err := ioutil.ReadAll(resp.Body)
+			data, err := io.ReadAll(resp.Body)
 			if err != nil {
 				log.Debugf("failed to read response body: %v", err)
 			}
@@ -146,26 +146,6 @@ func registryCtlHealthChecker() health.Checker {
 	return PeriodicHealthChecker(checker, period)
 }
 
-func chartmuseumHealthChecker() health.Checker {
-	url, err := config.GetChartMuseumEndpoint()
-	if err != nil {
-		log.Errorf("failed to get the URL of chartmuseum: %v", err)
-	}
-	url = url + "/health"
-	timeout := 60 * time.Second
-	period := 10 * time.Second
-	checker := HTTPStatusCodeHealthChecker(http.MethodGet, url, nil, timeout, http.StatusOK)
-	return PeriodicHealthChecker(checker, period)
-}
-
-func notaryHealthChecker() health.Checker {
-	url := config.InternalNotaryEndpoint() + "/_notary_server/health"
-	timeout := 60 * time.Second
-	period := 10 * time.Second
-	checker := HTTPStatusCodeHealthChecker(http.MethodGet, url, nil, timeout, http.StatusOK)
-	return PeriodicHealthChecker(checker, period)
-}
-
 func databaseHealthChecker() health.Checker {
 	period := 10 * time.Second
 	checker := health.CheckFunc(func() error {
@@ -203,12 +183,6 @@ func RegisterHealthCheckers() {
 	registry["registryctl"] = registryCtlHealthChecker()
 	registry["database"] = databaseHealthChecker()
 	registry["redis"] = redisHealthChecker()
-	if config.WithChartMuseum() {
-		registry["chartmuseum"] = chartmuseumHealthChecker()
-	}
-	if config.WithNotary() {
-		registry["notary"] = notaryHealthChecker()
-	}
 	if config.WithTrivy() {
 		registry["trivy"] = trivyHealthChecker()
 	}
